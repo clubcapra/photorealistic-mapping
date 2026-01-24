@@ -1,0 +1,24 @@
+[0.875s] Invoking command in '/home/nathan/mapping_test/ws_livox/src/ros2_camera_publish': PYTHONPATH=/home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nathan/mapping_test/ws_livox/install/ros2_camera_publish/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/ros2_camera_publish build --build-base /home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/build install --record /home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/install.log --install-scripts $base/lib/ros2_camera_publish --single-version-externally-managed install_data
+[1.158s] /usr/lib/python3/dist-packages/setuptools/dist.py:723: UserWarning: Usage of dash-separated 'script-dir' will not be supported in future versions. Please use the underscore name 'script_dir' instead
+[1.158s]   warnings.warn(
+[1.167s] running egg_info
+[1.168s] writing ../../build/ros2_camera_publish/ros2_camera_publish.egg-info/PKG-INFO
+[1.168s] writing dependency_links to ../../build/ros2_camera_publish/ros2_camera_publish.egg-info/dependency_links.txt
+[1.169s] writing entry points to ../../build/ros2_camera_publish/ros2_camera_publish.egg-info/entry_points.txt
+[1.169s] writing requirements to ../../build/ros2_camera_publish/ros2_camera_publish.egg-info/requires.txt
+[1.169s] writing top-level names to ../../build/ros2_camera_publish/ros2_camera_publish.egg-info/top_level.txt
+[1.171s] reading manifest file '../../build/ros2_camera_publish/ros2_camera_publish.egg-info/SOURCES.txt'
+[1.171s] adding license file 'LICENSE'
+[1.172s] writing manifest file '../../build/ros2_camera_publish/ros2_camera_publish.egg-info/SOURCES.txt'
+[1.172s] running build
+[1.172s] running build_py
+[1.173s] running install
+[1.173s] running install_lib
+[1.174s] running install_data
+[1.174s] running install_egg_info
+[1.176s] removing '/home/nathan/mapping_test/ws_livox/install/ros2_camera_publish/lib/python3.10/site-packages/ros2_camera_publish-0.0.0-py3.10.egg-info' (and everything under it)
+[1.177s] Copying ../../build/ros2_camera_publish/ros2_camera_publish.egg-info to /home/nathan/mapping_test/ws_livox/install/ros2_camera_publish/lib/python3.10/site-packages/ros2_camera_publish-0.0.0-py3.10.egg-info
+[1.178s] running install_scripts
+[1.199s] Installing execute script to /home/nathan/mapping_test/ws_livox/install/ros2_camera_publish/lib/ros2_camera_publish
+[1.200s] writing list of installed files to '/home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/install.log'
+[1.223s] Invoked command in '/home/nathan/mapping_test/ws_livox/src/ros2_camera_publish' returned '0': PYTHONPATH=/home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/nathan/mapping_test/ws_livox/install/ros2_camera_publish/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/ros2_camera_publish build --build-base /home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/build install --record /home/nathan/mapping_test/ws_livox/build/ros2_camera_publish/install.log --install-scripts $base/lib/ros2_camera_publish --single-version-externally-managed install_data

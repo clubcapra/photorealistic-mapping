@@ -1,0 +1,6 @@
+{
+    "device_index": 2,
+    "topic": "sensor_msgs/msg",
+    "queue_size": 1,
+    "period": 0.01
+}

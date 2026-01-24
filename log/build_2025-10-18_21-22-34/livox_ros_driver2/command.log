@@ -1,0 +1,2 @@
+Invoking command in '/home/nathan/mapping_test/ws_livox/build/livox_ros_driver2': /usr/bin/cmake /home/nathan/mapping_test/ws_livox/src/livox_ros_driver2 -DCMAKE_INSTALL_PREFIX=/home/nathan/mapping_test/ws_livox/install/livox_ros_driver2
+Invoked command in '/home/nathan/mapping_test/ws_livox/build/livox_ros_driver2' returned '1': /usr/bin/cmake /home/nathan/mapping_test/ws_livox/src/livox_ros_driver2 -DCMAKE_INSTALL_PREFIX=/home/nathan/mapping_test/ws_livox/install/livox_ros_driver2
