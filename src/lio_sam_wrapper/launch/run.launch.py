@@ -36,9 +36,5 @@ def generate_launch_description():
             executable='lidar_wrapper',
             name='lidar_wrapper',
             output='screen',
-        ),
-        IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(
-                        get_package_share_directory('lio_sam_wrapper'),
-                        'launch/vectornav.launch.py'))),
+        )
     ])
