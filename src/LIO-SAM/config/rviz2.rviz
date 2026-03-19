@@ -86,17 +86,17 @@ Visualization Manager:
       Frames:
         All Enabled: true
         base_link:
-          Value: true
+          Value: false
         chassis_link:
-          Value: true
+          Value: false
         imu_link:
           Value: true
         map:
           Value: true
         navsat_link:
-          Value: true
+          Value: false
         odom:
-          Value: true
+          Value: false
         os0_32/os_sensor:
           Value: true
       Marker Scale: 1
