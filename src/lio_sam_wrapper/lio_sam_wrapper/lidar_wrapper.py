@@ -26,27 +26,65 @@ class LivoxToLioSam(Node):
         self.get_logger().info("Livox to LIO-SAM wrapper node started.")
 
     def pointcloud_callback(self, msg: PointCloud2):
-        # Make a shallow copy of the message 
-        new_msg = PointCloud2() 
-        new_msg.header = msg.header 
-        new_msg.height = msg.height 
-        new_msg.width = msg.width 
-        new_msg.is_dense = msg.is_dense 
-        new_msg.is_bigendian = msg.is_bigendian 
-        new_msg.point_step = msg.point_step 
-        new_msg.row_step = msg.row_step 
-        new_msg.data = msg.data 
-        # Copy and rename fields 
-        new_fields = list(msg.fields) 
-        if len(new_fields) > 6: 
-            new_fields[5].name = 'ring' 
-            new_fields[5].datatype = PointField.UINT16 
-            new_fields[6].name = 'time' 
-            new_fields[6].datatype = PointField.FLOAT32 
-        else: 
-            self.get_logger().warn( f'PointCloud2 has only {len(new_fields)} fields; ' 'cannot rename indices 5 and 6' ) 
-            new_msg.fields = new_fields 
-            self.publisher.publish(new_msg)
+        num_points = msg.width * msg.height
+
+        # Livox MID360 original layout
+        old_dtype = np.dtype([
+            ('x', np.float32),
+            ('y', np.float32),
+            ('z', np.float32),
+            ('intensity', np.float32),
+            ('tag', np.uint8),
+            ('line', np.uint8),
+            ('offset_time', np.float64)
+        ])
+
+        # Load data as structured array
+        points = np.frombuffer(msg.data, dtype=old_dtype, count=num_points)
+
+        # New dtype for LIO-SAM
+        new_dtype = np.dtype([
+            ('x', np.float32),
+            ('y', np.float32),
+            ('z', np.float32),
+            ('intensity', np.float32),
+            ('ring', np.uint16),
+            ('time', np.float32)
+        ])
+        new_points = np.zeros(num_points, dtype=new_dtype)
+
+        # Copy fields and convert types
+        new_points['x'] = points['x']
+        new_points['y'] = points['y']
+        new_points['z'] = points['z']
+        new_points['intensity'] = points['intensity']
+        new_points['ring'] = points['line'].astype(np.uint16)
+        new_points['time'] = points['offset_time'].astype(np.float32) * 1e-9  # ns → s
+
+        # Build new PointCloud2 message
+        new_msg = PointCloud2()
+        new_msg.header = msg.header
+        new_msg.height = 1
+        new_msg.width = num_points
+        new_msg.is_dense = msg.is_dense
+        new_msg.is_bigendian = False
+
+        # ROS2 Humble requires keyword arguments for PointField
+        new_msg.fields = [
+            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
+            PointField(name='intensity', offset=12, datatype=PointField.FLOAT32, count=1),
+            PointField(name='ring', offset=16, datatype=PointField.UINT16, count=1),
+            PointField(name='time', offset=18, datatype=PointField.FLOAT32, count=1)
+        ]
+
+        new_msg.point_step = 22  # 4+4+4+4+2+4
+        new_msg.row_step = new_msg.point_step * num_points
+        new_msg.data = new_points.tobytes()
+
+        # Publish
+        self.publisher.publish(new_msg)
 
 
 def main(args=None):
