@@ -148,13 +148,12 @@ typedef union {
 #pragma pack(1)
 
 typedef struct {
-  float x;            /**< X axis, Unit:m */
-  float y;            /**< Y axis, Unit:m */
-  float z;            /**< Z axis, Unit:m */
-  float reflectivity; /**< Reflectivity   */
-  uint8_t tag;        /**< Livox point tag   */
-  uint8_t line;       /**< Laser line id     */
-  double timestamp;   /**< Timestamp of point*/
+  float x;
+  float y;
+  float z;
+  float intensity;
+  uint16_t ring;
+  float time;
 } LivoxPointXyzrtlt;
 
 typedef struct {
