@@ -1,0 +1,212 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="sensor_mount">
+
+  <!-- ═══════════════════════════════════════════════════
+       PROPERTIES
+       Adjust these values to match your physical mount
+  ════════════════════════════════════════════════════ -->
+
+  <!-- Mid360 dimensions (approx.) -->
+  <xacro:property name="mid360_radius"   value="0.0385"/>  <!-- 77mm diameter -->
+  <xacro:property name="mid360_height"   value="0.0637"/>  <!-- 63.7mm height  -->
+
+  <!-- VN300 dimensions (approx.) -->
+  <xacro:property name="vn300_x"         value="0.0360"/>  <!-- 36mm length -->
+  <xacro:property name="vn300_y"         value="0.0330"/>  <!-- 33mm width  -->
+  <xacro:property name="vn300_z"         value="0.0090"/>  <!-- 9mm height  -->
+
+  <!-- Mount plate (optional thin plate between them) -->
+  <xacro:property name="plate_x"         value="0.080"/>
+  <xacro:property name="plate_y"         value="0.080"/>
+  <xacro:property name="plate_z"         value="0.004"/>
+
+  <!-- Z offset: VN300 sits just below the plate, centred under the Mid360 -->
+  <!-- total stack from base_link up:                                       -->
+  <!--   0.0 → base_link                                                    -->
+  <!--   plate sits at z=0                                                  -->
+  <!--   mid360 optical centre is at z = plate_z/2 + mid360_height/2       -->
+  <!--   vn300 centre is at z = -(plate_z/2 + vn300_z/2)  (below plate)    -->
+
+  <xacro:property name="mid360_z_offset"
+      value="${plate_z/2 + mid360_height/2}"/>
+
+  <xacro:property name="vn300_z_offset"
+      value="${-(plate_z/2 + vn300_z/2)}"/>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       MATERIALS
+  ════════════════════════════════════════════════════ -->
+
+  <material name="dark_grey">
+    <color rgba="0.2 0.2 0.2 1.0"/>
+  </material>
+
+  <material name="light_grey">
+    <color rgba="0.6 0.6 0.6 1.0"/>
+  </material>
+
+  <material name="red">
+    <color rgba="1 0.1 0.1 1"/>
+  </material>
+
+  <material name="livox_blue">
+    <color rgba="0.05 0.35 0.75 1.0"/>
+  </material>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       BASE LINK  (root of the sensor assembly)
+  ════════════════════════════════════════════════════ -->
+
+  <link name="base_link"/>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       MOUNT PLATE
+  ════════════════════════════════════════════════════ -->
+
+  <joint name="plate_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="mount_plate"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="mount_plate">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${plate_x} ${plate_y} ${plate_z}"/>
+      </geometry>
+      <material name="dark_grey"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${plate_x} ${plate_y} ${plate_z}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.05"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="5e-6" ixy="0" ixz="0"
+               iyy="5e-6" iyz="0"
+               izz="8e-6"/>
+    </inertial>
+  </link>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       LIVOX MID360  (upright, on top of the plate)
+       The Mid360 optical/scan frame sits at the
+       geometric centre of the cylinder.
+  ════════════════════════════════════════════════════ -->
+
+  <joint name="mid360_joint" type="fixed">
+    <parent link="mount_plate"/>
+    <child  link="mid360_link"/>
+    <origin xyz="0 0 ${mid360_z_offset}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="mid360_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${mid360_radius}" length="${mid360_height}"/>
+      </geometry>
+      <material name="livox_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${mid360_radius}" length="${mid360_height}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.265"/>   <!-- Mid360 datasheet: 265 g -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="3e-4" ixy="0" ixz="0"
+               iyy="3e-4" iyz="0"
+               izz="5e-4"/>
+    </inertial>
+  </link>
+
+  <!--
+    Separate optical/sensor frame for the Mid360.
+    RTABMap and the Livox driver reference this frame.
+    Placed at the top face of the cylinder (where the window is).
+  -->
+  <joint name="mid360_sensor_joint" type="fixed">
+    <parent link="mid360_link"/>
+    <child  link="livox_frame"/>
+    <origin xyz="0 0 ${mid360_height/2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="livox_frame"/>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       VECTORNAV VN300
+       Mounted UNDER the plate, UPSIDE DOWN.
+
+       "Upside down" means rotated 180° around the X axis
+       (roll = π).  This flips Z (gravity vector) and Y,
+       while X stays the same — consistent with VN300's
+       body-frame convention.
+
+       If your physical orientation differs, adjust rpy:
+         roll  π  → flipped around forward axis  ✓ (upside-down)
+         pitch 0
+         yaw   0  → adjust if connector faces a different direction
+  ════════════════════════════════════════════════════ -->
+
+  <joint name="vn300_joint" type="fixed">
+    <parent link="mount_plate"/>
+    <child  link="imu_link"/>
+    <!--
+      xyz: centred under the plate
+      rpy: roll=pi  →  board is inverted (upside-down)
+           Set yaw to match connector/antenna orientation if needed.
+    -->
+    <origin xyz="0 0 ${vn300_z_offset}" rpy="${pi} 0 0"/>
+  </joint>
+
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${vn300_x} ${vn300_y} ${vn300_z}"/>
+      </geometry>
+      <material name="red"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${vn300_x} ${vn300_y} ${vn300_z}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.030"/>   <!-- VN300 datasheet: ~30 g -->
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="2e-6" ixy="0" ixz="0"
+               iyy="3e-6" iyz="0"
+               izz="3e-6"/>
+    </inertial>
+  </link>
+
+
+  <!-- ═══════════════════════════════════════════════════
+       QUICK REFERENCE — TF TREE
+       base_link
+         └── mount_plate          (z = 0)
+               ├── mid360_link    (z = +plate_z/2 + mid360_height/2)
+               │     └── livox_frame   (z = top face of Mid360)
+               └── imu_link       (z = -(plate_z/2 + vn300_z/2),
+                                   roll = π  →  upside-down)
+
+       Frames used by drivers / RTABMap:
+         livox_frame  →  set in MID360_config / Livox launch
+         imu_link     →  set in vectornav params (frame_id: "imu_link")
+  ════════════════════════════════════════════════════ -->
+
+</robot>
