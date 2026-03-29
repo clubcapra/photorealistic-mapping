@@ -1,47 +1,36 @@
-
 import os
-from ament_index_python.packages import get_package_share_directory  # FIX 1: was missing .packages
+import xacro
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-import xacro  # add this at the top of the launch file
 
- 
+
 def generate_launch_description():
- 
-    # ── Livox Mid360 ────────────────────────────────────────────────────────
-    # FIX 2: Use msg_MID360_launch (publishes PointCloud2) NOT rviz_MID360_launch
-    #         rviz_MID360_launch opens RViz AND uses CustomMsg format — wrong for RTABMap
+
+    pkg = get_package_share_directory('rove_color_mapping')
+
+    # ── Livox Mid360 ─────────────────────────────────────────────────────────
     livox_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('livox_ros_driver2'),
             'launch_ROS2',
-            'msg_MID360_launch.py'         # publishes /livox/lidar as PointCloud2
-        ))
-    )
- 
-    # ── VectorNav VN300 ─────────────────────────────────────────────────────
-    vectornav_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(os.path.join(
-            get_package_share_directory('rove_color_mapping'),
-            'launch',
-            'vectornav.launch.py'
+            'msg_MID360_launch.py'
         )),
-        launch_arguments={
-            "xfer_format": "0",
-        }.items()
-    )
- 
-    # ── Robot State Publisher (publishes TF from your XACRO) ────────────────
-    # FIX 3: You need this so RTABMap can find base_link → livox_frame → imu_link
-    urdf_file = os.path.join(
-        get_package_share_directory('rove_color_mapping'),
-        'urdf',
-        'sensor_mount.urdf.xacro'
+        launch_arguments={'frame_id': 'livox_frame'}.items()
     )
 
-    robot_description = xacro.process_file(urdf_file).toxml()  # expands all variables
+    # ── VectorNav VN300 ──────────────────────────────────────────────────────
+    vectornav_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            pkg, 'launch', 'vectornav.launch.py'
+        ))
+    )
+
+    # ── Robot State Publisher ────────────────────────────────────────────────
+    urdf_file = os.path.join(pkg, 'urdf', 'sensor_mount.urdf.xacro')
+    robot_description = xacro.process_file(urdf_file).toxml()
 
     robot_state_publisher = Node(
         package='robot_state_publisher',
@@ -49,17 +38,12 @@ def generate_launch_description():
         name='robot_state_publisher',
         output='screen',
         parameters=[{
-            'robot_description': robot_description  # pass raw URDF string
-            # NOTE: if you use xacro macros, do:
-            #   import xacro
-            #   robot_description = xacro.process_file(urdf_file).toxml()
+            'robot_description': robot_description,
+            'publish_frequency': 50.0,
         }]
     )
 
-    # ── RTABMap odometry node (separate from the mapping node) ───────────────
-    # This generates odom → base_link from the LiDAR scan.
-    # Splitting odometry and mapping into two nodes is the correct RTABMap
-    # architecture for LiDAR-only — the mapping node then consumes /odom.
+    # ── ICP Odometry ─────────────────────────────────────────────────────────
     rtabmap_odom_node = Node(
         package='rtabmap_odom',
         executable='icp_odometry',
@@ -83,76 +67,92 @@ def generate_launch_description():
             # IMU upside-down correction
             'imu_local_transform': '0 0 0 3.14159 0 0',
             'wait_imu_to_init':    True,
+            'qos_imu':             1,
 
-            # ICP odometry params
+            # ── ICP params tuned for Livox Mid360 ──────────────────────────
             'Icp/PointToPlane':              'true',
-            'Icp/Iterations':                '10',
-            'Icp/VoxelSize':                 '0.1',
-            'Icp/MaxCorrespondenceDistance': '1.0',
-            'Odom/Strategy':                 '0',
-            'OdomF2M/ScanSubtractRadius':    '0.1',
+            'Icp/PointToPlaneK':             '20',
+            'Icp/PointToPlaneRadius':        '0',
+            'Icp/Iterations':                '30',    # more iterations = more robust
+            'Icp/VoxelSize':                 '0.2',   # slightly coarser for speed
+            'Icp/DownsamplingStep':          '1',
+            'Icp/OutlierRatio':              '0.85',  # allow more outliers
+            'Icp/CorrespondenceRatio':       '0.01',  # very permissive — Livox is sparse
+
+            # FIX: loosen motion limits — these were causing the resets
+            'Icp/MaxTranslation':            '3.0',   # was implicitly 0.2 — now 3m
+            'Icp/MaxRotation':               '3.14',  # allow up to 180° rotation
+            'Icp/MaxCorrespondenceDistance': '0.5',   # tighter correspondence
+
+            # Odometry
+            'Odom/Strategy':              '0',        # Frame-to-Map
+            'Odom/ResetCountdown':        '0',        # don't auto-reset
+            'Odom/GuessMotion':           'true',     # use IMU to seed ICP guess
+            'OdomF2M/ScanSubtractRadius': '0.1',
+            'OdomF2M/MaxSize':            '20000',    # larger local map
+            'OdomF2M/ScanMaxSize':        '20000',
         }],
         remappings=[
             ('scan_cloud', '/livox/lidar'),
             ('imu',        '/vectornav/imu'),
         ]
     )
- 
-    # ── RTABMap ─────────────────────────────────────────────────────────────
+
+    # ── RTABMap SLAM ─────────────────────────────────────────────────────────
     rtabmap_node = Node(
         package='rtabmap_slam',
         executable='rtabmap',
         name='rtabmap',
         output='screen',
         parameters=[{
-            'subscribe_depth':  False,
-            'subscribe_lidar':  True,
-            'subscribe_imu':    True,
-            'use_action_for_goal': True,
-            'subscribe_rgb': False,
-            'RGBD/Enabled': 'false',
-            
-            # Frames — must match your XACRO link names
+            'subscribe_depth':        False,
+            'subscribe_rgb':          False,
+            'subscribe_stereo':       False,
+            'subscribe_rgbd':         False,
+            'subscribe_sensor_data':  False,
+            'subscribe_scan':         False,
+            'subscribe_lidar':        True,
+            'subscribe_imu':          True,
+            'RGBD/Enabled':           'false',
+            'use_action_for_goal':    True,
+
             'frame_id':      'base_link',
             'odom_frame_id': 'odom',
             'map_frame_id':  'map',
- 
-            # FIX 4: approx_sync needed when LiDAR and IMU have different rates
-            'approx_sync':   True,
-            'approx_sync_max_interval': 0.01,   # 10 ms tolerance
- 
-            # LiDAR ICP params
+
+            'wait_for_transform': 0.5,
+            'tf_tolerance':       0.2,
+
+            'approx_sync':              True,
+            'approx_sync_max_interval': 0.02,
+            'topic_queue_size':         30,
+            'sync_queue_size':          30,
+
+            'database_path': os.path.join(
+                os.path.expanduser('~'), '.ros', 'rtabmap_lidar.db'
+            ),
+
+            # ICP for loop closure — can be stricter than odometry
             'Icp/PointToPlane':              'true',
-            'Icp/Iterations':                '10',
-            'Icp/VoxelSize':                 '0.1',
-            'Icp/MaxCorrespondenceDistance': '1.0',
- 
-            # Memory
+            'Icp/Iterations':                '30',
+            'Icp/VoxelSize':                 '0.2',
+            'Icp/MaxCorrespondenceDistance': '0.5',
+            'Icp/CorrespondenceRatio':       '0.01',
+            'Icp/OutlierRatio':              '0.85',
+            'Icp/MaxTranslation':            '3.0',
+
             'Mem/IncrementalMemory':  'true',
             'Mem/InitWMWithAllNodes': 'true',
- 
-            # IMU integration
-            'wait_imu_to_init':        True,    # FIX 5: bool not string
-            'Odom/Strategy':           '0',
-            'OdomF2M/ScanSubtractRadius': '0.1',
- 
-            # FIX 6: IMU is upside-down — tell RTABMap to expect inverted gravity
-            # This applies a 180° roll to the IMU data to account for the mount
-            'imu_local_transform':  '0 0 0 3.14159 0 0',  # x y z roll pitch yaw
- 
-            # Loop closure / registration
+
             'RGBD/ProximityBySpace': 'true',
-            'Reg/Strategy':          '1',       # ICP
+            'Reg/Strategy':          '1',
         }],
         remappings=[
-            # FIX 7: both remappings point to the same /livox/lidar topic — be consistent.
-            # scan_cloud_topic param AND the remapping must agree on ONE topic name.
-            # Since msg_MID360_launch publishes PointCloud2 on /livox/lidar, use that directly.
             ('scan_cloud', '/livox/lidar'),
-            # ('imu',        '/vectornav/imu'),
+            ('imu',        '/vectornav/imu'),
         ]
     )
- 
+
     # ── RTABMap Viz ──────────────────────────────────────────────────────────
     rtabmap_viz_node = Node(
         package='rtabmap_viz',
@@ -174,11 +174,12 @@ def generate_launch_description():
             ('imu',        '/vectornav/imu'),
         ]
     )
- 
+
     return LaunchDescription([
         livox_launch,
         vectornav_launch,
-        robot_state_publisher,   # FIX 3: must come before RTABMap
+        robot_state_publisher,
+        rtabmap_odom_node,
         rtabmap_node,
         rtabmap_viz_node,
     ])

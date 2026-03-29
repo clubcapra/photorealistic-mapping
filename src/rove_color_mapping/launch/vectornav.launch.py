@@ -25,7 +25,7 @@ def generate_launch_description():
                 parameters=[vn_param_file],
                 remappings=[
                     ("/vectornav/gnss", "/gps"),
-                    ("/vectornav/imu", "/imu"),
+                    # ("/vectornav/imu", "/imu"),
                 ],
             ),
         ]

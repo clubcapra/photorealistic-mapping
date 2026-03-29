@@ -162,7 +162,7 @@
 
   <joint name="vn300_joint" type="fixed">
     <parent link="mount_plate"/>
-    <child  link="imu_link"/>
+    <child  link="sensor_link"/>
     <!--
       xyz: centred under the plate
       rpy: roll=pi  →  board is inverted (upside-down)
@@ -171,7 +171,7 @@
     <origin xyz="0 0 ${vn300_z_offset}" rpy="${pi} 0 0"/>
   </joint>
 
-  <link name="imu_link">
+  <link name="sensor_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
@@ -201,12 +201,12 @@
          └── mount_plate          (z = 0)
                ├── mid360_link    (z = +plate_z/2 + mid360_height/2)
                │     └── livox_frame   (z = top face of Mid360)
-               └── imu_link       (z = -(plate_z/2 + vn300_z/2),
+               └── sensor_link       (z = -(plate_z/2 + vn300_z/2),
                                    roll = π  →  upside-down)
 
        Frames used by drivers / RTABMap:
          livox_frame  →  set in MID360_config / Livox launch
-         imu_link     →  set in vectornav params (frame_id: "imu_link")
+         sensor_link     →  set in vectornav params (frame_id: "sensor_link")
   ════════════════════════════════════════════════════ -->
 
 </robot>
