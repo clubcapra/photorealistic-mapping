@@ -28,19 +28,28 @@ def generate_launch_description():
         ))
     )
 
-    # ── Robot State Publisher ────────────────────────────────────────────────
-    urdf_file = os.path.join(pkg, 'urdf', 'sensor_mount.urdf.xacro')
-    robot_description = xacro.process_file(urdf_file).toxml()
+    # ── Robot State Publisher (Test Rig)────────────────────────────────────────────────
+    # urdf_file = os.path.join(pkg, 'urdf', 'sensor_mount.urdf.xacro')
+    # robot_description = xacro.process_file(urdf_file).toxml()
 
-    robot_state_publisher = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='robot_state_publisher',
-        output='screen',
-        parameters=[{
-            'robot_description': robot_description,
-            'publish_frequency': 50.0,
-        }]
+    # robot_state_publisher = Node(
+    #     package='robot_state_publisher',
+    #     executable='robot_state_publisher',
+    #     name='robot_state_publisher',
+    #     output='screen',
+    #     parameters=[{
+    #         'robot_description': robot_description,
+    #         'publish_frequency': 50.0,
+    #     }]
+    # )
+
+    # ── Robot State Publisher (Rove)────────────────────────────────────────────────
+    robot_state_publisher = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            get_package_share_directory('rove_description'),
+            'launch',
+            'launch.py'
+        ))
     )
 
     # ── Use the official RTABMap lidar3d example launch ──────────────────────
