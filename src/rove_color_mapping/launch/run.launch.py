@@ -24,7 +24,8 @@ def generate_launch_description():
     # ── VectorNav VN300 ──────────────────────────────────────────────────────
     vectornav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
-            pkg, 'launch', 'vectornav.launch.py'
+            get_package_share_directory('vectornav_udp_bridge'),
+            'launch', 'run.launch.py'
         ))
     )
 

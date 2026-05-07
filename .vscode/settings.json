@@ -10,5 +10,6 @@
         "/home/nathan/mapping_test/ws_livox/install/livox_ros_driver2/local/lib/python3.10/dist-packages",
         "/opt/ros/humble/lib/python3.10/site-packages",
         "/opt/ros/humble/local/lib/python3.10/dist-packages"
-    ]
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }

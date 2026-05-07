@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vectornav_udp_bridge</name>
+  <version>0.1.0</version>
+  <description>
+    Bridges VectorNav VN-300 UDP data from the Capra Rove Pi
+    into ROS2 standard sensor topics on the Jetson.
+  </description>
+  <maintainer email="you@example.com">Your Name</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>builtin_interfaces</exec_depend>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
