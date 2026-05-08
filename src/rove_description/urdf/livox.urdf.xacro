@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="livox_lidar" params="name parent_link *origin
+                                             ang_res_h:=0.4 min_ang_h:=-3.141592 max_ang_h:=3.141592
+                                             ang_res_v:=2.0 min_ang_v:=-0.261799 max_ang_v:=0.261799
+                                             update_rate:=20 min_range:=0.9 max_range:=130.0">
+    <link name="${name}_link">
+      <inertial>
+        <mass value="0.83"/>
+        <origin xyz="0 0 0.03585"/>
+        <inertia ixx="${(0.83 * (3.0*0.0516*0.0516 + 0.0717*0.0717)) / 12.0}"
+                 ixy="0"
+                 ixz="0"
+                 iyy="${(0.83 * (3.0*0.0516*0.0516 + 0.0717*0.0717)) / 12.0}"
+                 iyz="0"
+                 izz="${0.5 * 0.83 * (0.0516*0.0516)}"/>
+      </inertial>
+      <visual>
+        <geometry>
+          <box size="0.06 0.06 0.06"/>
+        </geometry>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.06 0.06 0.06"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}_joint" type="fixed">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent_link}"/>
+      <child link="${name}_link"/>
+    </joint>
+
+    <link name="${name}_laser">
+      <inertial>
+        <mass value="0.01"/>
+        <origin xyz="0 0 0"/>
+        <inertia ixx="1e-7" ixy="0" ixz="0" iyy="1e-7" iyz="0" izz="1e-7"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 -0.0377"/>
+        <geometry>
+          <mesh filename="file://$(find rove_description)/meshes/vlp16/VLP16_scan.dae"/>
+        </geometry>
+      </visual>
+    </link>
+
+    <joint name="${name}_laser_joint" type="fixed">
+      <origin xyz="0 0 0.0377" rpy="0 0 0"/>
+      <parent link="${name}_link"/>
+      <child link="${name}_laser"/>
+    </joint>
+
+    <!-- Alias link so the Livox driver's hardcoded 'livox_frame' frame_id resolves in TF -->
+    <link name="livox_frame"/>
+    <joint name="livox_frame_alias_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${name}_link"/>
+      <child link="livox_frame"/>
+    </joint>
+
+    <xacro:property name="samples_h" value="${floor((max_ang_h - min_ang_h) * 180 / (ang_res_h * pi) + 0.5)}"/>
+    <xacro:property name="samples_v" value="${floor((max_ang_v - min_ang_v) * 180 / (ang_res_v * pi) + 0.5)}"/>
+
+  </xacro:macro>
+</robot>
