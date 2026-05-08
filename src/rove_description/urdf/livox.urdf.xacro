@@ -53,6 +53,14 @@
       <child link="${name}_laser"/>
     </joint>
 
+    <!-- Alias link so the Livox driver's hardcoded 'livox_frame' frame_id resolves in TF -->
+    <link name="livox_frame"/>
+    <joint name="livox_frame_alias_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${name}_link"/>
+      <child link="livox_frame"/>
+    </joint>
+
     <xacro:property name="samples_h" value="${floor((max_ang_h - min_ang_h) * 180 / (ang_res_h * pi) + 0.5)}"/>
     <xacro:property name="samples_v" value="${floor((max_ang_v - min_ang_v) * 180 / (ang_res_v * pi) + 0.5)}"/>
 

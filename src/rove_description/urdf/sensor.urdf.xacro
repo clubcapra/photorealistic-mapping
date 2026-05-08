@@ -12,9 +12,10 @@
     <link name="top_link">
     </link>
 
+    <!-- IMU (VectorNav VN-300) -->
     <joint name="imu_joint" type="fixed">
         <parent link="top_link" />
-        <child link="camera_link" />
+        <child link="imu_link" />
         <origin xyz="-0.05 0.15 -0.06" rpy="0 0 0" />
     </joint>
 
@@ -35,6 +36,7 @@
         </collision>
     </link>
 
+    <!-- Camera -->
     <joint name="camera_joint" type="fixed">
         <parent link="top_link" />
         <child link="camera_link" />
@@ -58,8 +60,7 @@
         </collision>
     </link>
 
-
     <xacro:livox_lidar name="livox" parent_link="top_link">
-        <origin xyz="-0.3 0.0 0.13" rpy="0.5235987755983  0 ${-pi/2}" />
+        <origin xyz="-0.3 0.0 0.13" rpy="0  0.5235987755983 ${-pi/2}" />
     </xacro:livox_lidar>
 </robot>

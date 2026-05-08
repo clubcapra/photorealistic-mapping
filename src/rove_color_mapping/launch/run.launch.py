@@ -62,13 +62,12 @@ def generate_launch_description():
             'lidar3d.launch.py'
         )),
         launch_arguments={
-            'frame_id':       'base_link',
-            'lidar_topic':    '/livox/lidar',
-            'imu_topic':      '/vectornav/imu',
-            'deskewing':      'true',
-            'voxel_size':     '0.1',
-            'qos':            '1',
-            # expected_update_rate slightly above actual Mid360 rate (~10Hz)
+            'frame_id':            'base_link',
+            'lidar_topic':         '/livox/lidar',
+            'imu_topic':           '/imu/data',   # vectornav_udp_node publishes here
+            'deskewing':           'true',
+            'voxel_size':          '0.1',
+            'qos':                 '1',
             'expected_update_rate': '15.0',
         }.items()
     )
