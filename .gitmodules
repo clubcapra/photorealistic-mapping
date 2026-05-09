@@ -2,3 +2,6 @@
 	path = src/vectornav
 	url = https://github.com/dawonn/vectornav
 	branch = ros2
+[submodule "src/gscam2"]
+	path = src/gscam2
+	url = https://github.com/clydemcqueen/gscam2.git

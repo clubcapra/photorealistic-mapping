@@ -1,0 +1,19 @@
+front_camera/gscam_publisher:
+  ros__parameters:
+    gscam_config: >-
+      rtspsrc location=rtsp://192.168.2.30:554/
+      latency=0 protocols=tcp drop-on-latency=true is-live=true
+      ! application/x-rtp,media=video,encoding-name=H265
+      ! rtph265depay
+      ! h265parse config-interval=-1
+      ! nvv4l2decoder
+      ! nvvidconv
+      ! video/x-raw,format=BGRx
+      ! videoconvert
+      ! video/x-raw,format=BGR
+      ! appsink drop=true max-buffers=1
+    frame_id: 'camera_link'
+    camera_name: 'my_camera'
+    camera_info_url: ''
+    sync_sink: false
+    image_encoding: 'rgb8'
