@@ -9,8 +9,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    pkg = get_package_share_directory('rove_color_mapping')
-
     # ── Livox Mid360 ─────────────────────────────────────────────────────────
     livox_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
@@ -26,6 +24,14 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('vectornav_udp_bridge'),
             'launch', 'run.launch.py'
+        ))
+    )
+
+    # ── Nav2 ──────────────────────────────────────────────────────
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            get_package_share_directory('rove_color_mapping'),
+            'launch', 'nav.launch.py'
         ))
     )
 
@@ -77,4 +83,5 @@ def generate_launch_description():
         vectornav_launch,
         robot_state_publisher,
         rtabmap_lidar_launch,
+        nav2_launch
     ])
