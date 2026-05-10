@@ -72,16 +72,9 @@ def generate_launch_description():
             'lidar_topic':         '/livox/lidar',
             'imu_topic':           '/imu/data',
             'deskewing':           'true',
-            'voxel_size':          '0.1',
+            'voxel_size':          '0.01',
             'qos':                 '1',
             'expected_update_rate': '15.0',
-            # grid height filtering
-            'args': '-d'
-                   ' --Grid/MaxGroundHeight 0.1'
-                   ' --Grid/MaxObstacleHeight 1.5'
-                   ' --Grid/MinClusterSize 10'
-                   ' --Grid/RangeMax 5.0'
-                   ' --Grid/Sensor 1',
         }.items()
         )
 

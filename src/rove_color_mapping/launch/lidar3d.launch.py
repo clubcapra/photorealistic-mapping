@@ -79,7 +79,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'Icp/Epsilon': '0.001',
     'Icp/PointToPlaneK': '20',
     'Icp/PointToPlaneRadius': '0',
-    'Icp/MaxTranslation': '3',
+    'Icp/MaxTranslation': '0.5',
     'Icp/MaxCorrespondenceDistance': str(max_correspondence_distance),
     'Icp/Strategy': '1',
     'Icp/OutlierRatio': '0.7',
@@ -94,9 +94,9 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     # RTAB-Map's internal parameters are strings:
     'Odom/ScanKeyFrameThr': '0.4',
     'OdomF2M/ScanSubtractRadius': str(voxel_size_value),
-    'OdomF2M/ScanMaxSize': '15000',
+    'OdomF2M/ScanMaxSize': '20000',
     'OdomF2M/BundleAdjustment': 'false',
-    'Icp/CorrespondenceRatio': '0.01'
+    'Icp/CorrespondenceRatio': '0.03'
   }
   if imu_used:
     icp_odometry_parameters['wait_imu_to_init'] = True
@@ -111,8 +111,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     # RTAB-Map's internal parameters are strings:
     'RGBD/ProximityMaxGraphDepth': '0',
     'RGBD/ProximityPathMaxNeighbors': '1',
-    'RGBD/AngularUpdate': '0.05',
-    'RGBD/LinearUpdate': '0.05',
+    'RGBD/AngularUpdate': '0.1',
+    'RGBD/LinearUpdate': '0.1',
     'RGBD/CreateOccupancyGrid': 'true',
     'Mem/NotLinkedNodesKept': 'false',
     'Mem/STMSize': '30',
@@ -120,11 +120,12 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'Icp/CorrespondenceRatio': str(LaunchConfiguration('min_loop_closure_overlap').perform(context)),
     # 'Grid/Sensor': '1',
     'Grid/RangeMax': '10.0',
-    'Grid/MaxGroundHeight': '0.15',
+    'Grid/MaxGroundHeight': '0.25',
     'Grid/MaxObstacleHeight': '1.8',
-    'Grid/MinClusterSize': '10',
+    'Grid/MinClusterSize': '30',
     'Grid/NormalsSegmentation': 'true',
     'Grid/FootprintHeight': '0.0',
+    'Grid/CellSize': '0.01',
   }
   
   arguments = []
