@@ -10,8 +10,8 @@ costmap/costmap:
     always_send_full_costmap: true
     introspection_mode: "disabled"
     rolling_window: true
-    # width: 5
-    # height: 5
+    width: 10
+    height: 10
     plugins: ["obstacle_layer", "inflation_layer"]
     obstacle_layer:
       plugin: "nav2_costmap_2d::ObstacleLayer"
