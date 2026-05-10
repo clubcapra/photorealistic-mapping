@@ -113,11 +113,18 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'RGBD/ProximityPathMaxNeighbors': '1',
     'RGBD/AngularUpdate': '0.05',
     'RGBD/LinearUpdate': '0.05',
-    'RGBD/CreateOccupancyGrid': 'false',
+    'RGBD/CreateOccupancyGrid': 'true',
     'Mem/NotLinkedNodesKept': 'false',
     'Mem/STMSize': '30',
     'Reg/Strategy': '1',
-    'Icp/CorrespondenceRatio': str(LaunchConfiguration('min_loop_closure_overlap').perform(context))
+    'Icp/CorrespondenceRatio': str(LaunchConfiguration('min_loop_closure_overlap').perform(context)),
+    # 'Grid/Sensor': '1',
+    'Grid/RangeMax': '10.0',
+    'Grid/MaxGroundHeight': '0.15',
+    'Grid/MaxObstacleHeight': '1.8',
+    'Grid/MinClusterSize': '10',
+    'Grid/NormalsSegmentation': 'true',
+    'Grid/FootprintHeight': '0.0',
   }
   
   arguments = []
@@ -154,7 +161,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
   
     Node(
       package='rtabmap_viz', executable='rtabmap_viz', output='screen',
-      parameters=[shared_parameters, rtabmap_parameters],
+      parameters=[shared_parameters, rtabmap_parameters,
+                  {'odometry_node_name': "icp_odometry"}],
       remappings=remappings + [('scan_cloud', 'odom_filtered_input_scan')])
   ]
   

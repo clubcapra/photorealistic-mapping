@@ -12,20 +12,19 @@ def generate_launch_description():
     local_costmap = Node(
         package='nav2_costmap_2d',
         executable='nav2_costmap_2d',
-        name='local_costmap',
-        namespace='local_costmap',
         output='screen',
         parameters=[params],
     )
+    
 
-    global_costmap = Node(
-        package='nav2_costmap_2d',
-        executable='nav2_costmap_2d',
-        name='global_costmap',
-        namespace='global_costmap',
-        output='screen',
-        parameters=[params],
-    )
+    # global_costmap = Node(
+    #     package='nav2_costmap_2d',
+    #     executable='nav2_costmap_2d',
+    #     output='screen',
+    #     parameters=[params],
+    #     remappings=[('costmap/costmap', 'global_costmap/costmap')],
+    # )
+    
 
     lifecycle_manager = Node(
         package='nav2_lifecycle_manager',
@@ -35,12 +34,12 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': False,
             'autostart': True,
-            'node_names': ['local_costmap/local_costmap', 'global_costmap/global_costmap']
+            'node_names': ['costmap/costmap']
         }]
     )
 
     return LaunchDescription([
         local_costmap,
-        global_costmap,
+        # global_costmap,
         lifecycle_manager,
     ])
