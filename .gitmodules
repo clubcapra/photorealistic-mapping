@@ -5,3 +5,7 @@
 [submodule "src/gscam2"]
 	path = src/gscam2
 	url = https://github.com/clydemcqueen/gscam2.git
+[submodule "src/navigation2"]
+	path = src/navigation2
+	url = https://github.com/ros-navigation/navigation2.git
+	branch = humble

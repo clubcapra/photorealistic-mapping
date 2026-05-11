@@ -11,11 +11,12 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('pi_ip',    default_value='192.168.2.153',
+        DeclareLaunchArgument('pi_ip',    default_value='192.168.2.2',
                               description='IP address of the Capra Rove Pi'),
         DeclareLaunchArgument('udp_port', default_value='5000',
                               description='VectorNav data UDP port'),
@@ -33,10 +34,10 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'pi_ip':               LaunchConfiguration('pi_ip'),
-                'udp_port':            LaunchConfiguration('udp_port'),
+                'udp_port':            ParameterValue(LaunchConfiguration('udp_port'), value_type=int),
                 'imu_frame':           LaunchConfiguration('imu_frame'),
                 'gps_frame':           LaunchConfiguration('gps_frame'),
-                'subscribe_interval':  LaunchConfiguration('subscribe_interval'),
+                'subscribe_interval':  ParameterValue(LaunchConfiguration('subscribe_interval'), value_type=float),
             }],
         ),
     ])

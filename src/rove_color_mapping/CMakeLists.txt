@@ -31,6 +31,8 @@ find_package(GTSAM REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(rtabmap_ros REQUIRED)
+find_package(nav2_costmap_2d REQUIRED)
+find_package(nav2_msgs REQUIRED)
 
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
