@@ -9,8 +9,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    pkg = get_package_share_directory('rove_color_mapping')
-
     # ── Livox Mid360 ─────────────────────────────────────────────────────────
     livox_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
@@ -26,6 +24,14 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('vectornav_udp_bridge'),
             'launch', 'run.launch.py'
+        ))
+    )
+
+    # ── Nav2 ──────────────────────────────────────────────────────
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            get_package_share_directory('rove_color_mapping'),
+            'launch', 'nav.launch.py'
         ))
     )
 
@@ -57,24 +63,25 @@ def generate_launch_description():
     # Pass our specific topics and frame into it directly
     rtabmap_lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
-            get_package_share_directory('rtabmap_examples'),
+            get_package_share_directory('rove_color_mapping'),
             'launch',
             'lidar3d.launch.py'
         )),
         launch_arguments={
             'frame_id':            'base_link',
             'lidar_topic':         '/livox/lidar',
-            'imu_topic':           '/imu/data',   # vectornav_udp_node publishes here
+            'imu_topic':           '/imu/data',
             'deskewing':           'true',
             'voxel_size':          '0.1',
             'qos':                 '1',
             'expected_update_rate': '15.0',
         }.items()
-    )
+        )
 
     return LaunchDescription([
         livox_launch,
         vectornav_launch,
         robot_state_publisher,
         rtabmap_lidar_launch,
+        # nav2_launch
     ])
