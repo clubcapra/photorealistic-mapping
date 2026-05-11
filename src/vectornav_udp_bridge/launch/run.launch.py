@@ -15,7 +15,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('pi_ip',    default_value='192.168.2.153',
+        DeclareLaunchArgument('pi_ip',    default_value='192.168.2.2',
                               description='IP address of the Capra Rove Pi'),
         DeclareLaunchArgument('udp_port', default_value='5000',
                               description='VectorNav data UDP port'),
