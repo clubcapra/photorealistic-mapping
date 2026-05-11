@@ -72,7 +72,7 @@ def generate_launch_description():
             'lidar_topic':         '/livox/lidar',
             'imu_topic':           '/imu/data',
             'deskewing':           'true',
-            'voxel_size':          '0.01',
+            'voxel_size':          '0.1',
             'qos':                 '1',
             'expected_update_rate': '15.0',
         }.items()
