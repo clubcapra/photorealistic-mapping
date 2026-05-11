@@ -64,10 +64,10 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     localization = localization in ('true', 'True')
 
     deskewing = LaunchConfiguration('deskewing').perform(context)
-    deskewing = deskewing in ('true', 'True')
+    deskewing = deskewing == 'true' or deskewing == 'True'
 
     deskewing_slerp = LaunchConfiguration('deskewing_slerp').perform(context)
-    deskewing_slerp = deskewing_slerp in ('true', 'True')
+    localization = localization == 'true' or localization == 'True'
 
     fixed_frame_from_imu = False
     fixed_frame_id = LaunchConfiguration('fixed_frame_id').perform(context)
@@ -529,7 +529,7 @@ def generate_launch_description():
             )),
 
         DeclareLaunchArgument(
-            'imu_topic', default_value='/livox/imu',
+            'imu_topic', default_value='/imu/data',
             description=(
                 'IMU topic from the Mid-360 built-in IMU. '
                 'Set to empty string to disable IMU usage. '
