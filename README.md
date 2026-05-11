@@ -10,12 +10,12 @@ This repository is more of a test (as of writing these lines) than anything, thi
 ## Rosbag
 To record a bag, use:
 ```bash
-rosbag record -a -O my_recording.bag
+ros2 bag record -a -o my_recording
 ```
 
 To replay a bag to rebuild a rtabmap, use:
 ```bash
-rosbag play my_recording.bag --topics \
+ros2 bag play my_recording --topics \
   /livox/lidar \
   /livox/lidar/deskewed \
   /livox/imu \
