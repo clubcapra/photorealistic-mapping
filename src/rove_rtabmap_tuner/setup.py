@@ -31,6 +31,7 @@ setup(
             'render_template = rove_rtabmap_tuner.template_renderer:main',
             'run_trial = rove_rtabmap_tuner.trial_runner:main',
             'score_trial = rove_rtabmap_tuner.scoring:main',
+            'rank_trials = rove_rtabmap_tuner.scoring:rank_main',
             'optimize = rove_rtabmap_tuner.optimizer:main',
         ],
     },

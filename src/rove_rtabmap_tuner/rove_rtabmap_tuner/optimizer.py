@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import queue
+import statistics
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
@@ -27,6 +28,57 @@ from typing import Callable, Optional
 import optuna
 
 from .trial_runner import EnvConfig, run_trial
+
+
+# ---------------------------------------------------------------------------
+# Metric registry
+# ---------------------------------------------------------------------------
+# Each metric has a name, an optimization direction, how to pull its value out
+# of a per-bag ``TrajectoryStats`` dict, and a fallback to contribute when a
+# bag run failed. Aggregation across bags is always a mean.
+#
+# Add new metrics here. The optimizer will accept any registered name via
+# ``--metric``. When multiple ``--metric`` flags are given, Optuna switches to
+# multi-objective (Pareto) optimization with NSGA-II.
+@dataclass(frozen=True)
+class MetricSpec:
+    name: str
+    direction: str              # 'minimize' or 'maximize'
+    extract: Callable[[dict], float]
+    fail_value: float           # contributed when a bag run failed
+
+
+METRICS: dict[str, MetricSpec] = {
+    # Absolute start-to-end pose drift. The original metric. Sensitive to
+    # absolute scale and uninformative when the trajectory is short.
+    'drift_m': MetricSpec(
+        'drift_m', 'minimize',
+        extract=lambda s: float(s['drift_m']),
+        fail_value=5.0,
+    ),
+    # Drift normalized by path length. More comparable across bags of
+    # different lengths; bounded ~[0, 1] for sensible runs.
+    'drift_per_path': MetricSpec(
+        'drift_per_path', 'minimize',
+        extract=lambda s: float(s.get('drift_per_path') or 1.0),
+        fail_value=1.0,
+    ),
+    # ICP odometry health: mean correspondence ratio over all scan registrations.
+    # Higher = scans align cleanly. Ghosting almost always has low values here.
+    'mean_icp_ratio': MetricSpec(
+        'mean_icp_ratio', 'maximize',
+        extract=lambda s: float(s.get('mean_icp_ratio') or 0.0),
+        fail_value=0.0,
+    ),
+    # Number of accepted loop closures. A trajectory that revisits regions
+    # without firing loop closures is locally consistent but globally drifting
+    # — that's the textbook ghosting setup. More loops = more correction.
+    'loop_closure_count': MetricSpec(
+        'loop_closure_count', 'maximize',
+        extract=lambda s: float(s.get('loop_closure_count') or 0),
+        fail_value=0.0,
+    ),
+}
 
 
 # ROS_DOMAIN_IDs reserved by the production system; the tuner must never use
@@ -61,9 +113,13 @@ def build_domain_pool(n_workers: int, exclude: frozenset[int] = RESERVED_DOMAIN_
 #   ('int',   low, high)
 #   ('cat',   [choices...])
 SEARCH_SPACE: dict[str, tuple] = {
-    # ICP shared
-    'icp_voxel_size':                  ('float', 0.01, 0.5, True),
-    'icp_max_correspondence_distance': ('float', 0.05, 5.0, True),
+    # ICP shared. voxel_size and max_correspondence_distance ranges narrowed
+    # after observing that large-voxel optima (~0.3m) cause visible ghosting
+    # in the assembled map even when they minimize start-to-end drift.
+    # 10cm voxel is the practical upper bound for a clean outdoor map; the
+    # 10x voxel/correspondence ratio is preserved.
+    'icp_voxel_size':                  ('float', 0.01, 0.1, True),
+    'icp_max_correspondence_distance': ('float', 0.05, 1.0, True),
     'icp_iterations':                  ('int', 5, 50),
     'icp_outlier_ratio':               ('float', 0.1, 0.9, False),
     'icp_max_translation':             ('float', 0.1, 2.0, False),
@@ -83,8 +139,17 @@ SEARCH_SPACE: dict[str, tuple] = {
     # RTAB-Map SLAM / memory
     'rgbd_linear_update':              ('float', 0.05, 0.5, False),
     'rgbd_angular_update':             ('float', 0.05, 0.5, False),
-    'mem_stm_size':                    ('int', 10, 100),
+    # Lower STM (Short-Term Memory) so nodes graduate to Working Memory
+    # quickly — only WM nodes are eligible candidates for proximity loop
+    # closure. With STM=30 and short trajectories (<30 keyframes), no node is
+    # ever eligible, so loop_closure_count is stuck at zero.
+    'mem_stm_size':                    ('int', 2, 15),
     'icp_map_correspondence_ratio':    ('float', 0.05, 0.5, False),
+    # Number of candidate neighbors checked per step for proximity (space-based)
+    # loop closure. Higher = more aggressive loop closure attempts (more CPU).
+    # The launch default of 1 is conservative and likely too tight for short
+    # trajectories where revisits are uncommon.
+    'rgbd_proximity_path_max_neighbors': ('int', 1, 10),
 }
 
 
@@ -113,6 +178,30 @@ def suggest_params(
 # ---------------------------------------------------------------------------
 # Real objective
 # ---------------------------------------------------------------------------
+def _aggregate_metric(metric: MetricSpec, bag_results) -> tuple[float, list[float]]:
+    """**Median** across bags. Bags with no usable trajectory contribute
+    ``fail_value``. Returns (median, per_bag_values).
+
+    Median (vs mean) is essential when some bags fail reliably: a single
+    failed bag adds ``fail_value`` to the input list, but median picks the
+    middle value — so a few stubbornly-bad bags don't drag the trial score
+    to the math floor of ``2 * fail_value / N``. The optimizer can then see
+    actual improvement on the typical bag.
+    """
+    values: list[float] = []
+    for run in bag_results:
+        metrics = run.metrics or {}
+        stats = metrics.get('stats') if metrics.get('success') else None
+        if run.success and stats is not None:
+            try:
+                values.append(metric.extract(stats))
+            except (KeyError, TypeError):
+                values.append(metric.fail_value)
+        else:
+            values.append(metric.fail_value)
+    return (statistics.median(values) if values else metric.fail_value), values
+
+
 def make_real_objective(
     bags: list[Path],
     env: EnvConfig,
@@ -122,26 +211,27 @@ def make_real_objective(
     drain_s: float,
     shutdown_timeout_s: float,
     max_bag_duration_s: Optional[float],
-    failure_penalty_m: float,
+    metrics: list[str],
     search_space: dict[str, tuple] = SEARCH_SPACE,
     domain_pool: Optional[queue.Queue] = None,
-) -> Callable[[optuna.Trial], float]:
-    """Build an Optuna objective that runs ``run_trial`` and returns the
-    mean per-bag drift, with ``failure_penalty_m`` contributed for any bag
-    that didn't produce a usable trajectory.
+):
+    """Build an Optuna objective that runs ``run_trial`` and returns one value
+    per requested metric. When a single metric is requested, returns a scalar
+    (single-objective). When multiple are requested, returns a tuple
+    (multi-objective — Optuna treats this as Pareto optimization).
 
-    If ``domain_pool`` is provided, each invocation pulls one ROS_DOMAIN_ID
-    from the pool, uses it for the trial's subprocesses, and returns it on
-    exit. This is what makes ``n_jobs > 1`` safe — concurrent trials use
-    distinct DDS domains so their topics don't bleed into each other.
+    All available metrics are always written to ``trial.user_attrs`` for
+    post-hoc analysis, regardless of which were used to drive the search.
     """
-    def objective(trial: optuna.Trial) -> float:
+    specs = [METRICS[m] for m in metrics]
+
+    def objective(trial: optuna.Trial):
         overrides = suggest_params(trial, search_space)
         trial_id = f'trial_{trial.number:04d}'
 
         domain_id = None
         if domain_pool is not None:
-            domain_id = domain_pool.get()  # blocks if all workers busy
+            domain_id = domain_pool.get()
 
         try:
             result = run_trial(
@@ -160,21 +250,28 @@ def make_real_objective(
             if domain_id is not None:
                 domain_pool.put(domain_id)
 
-        per_bag_drifts: list[float] = []
-        for run in result.runs:
-            metrics = run.metrics or {}
-            stats = metrics.get('stats') if metrics.get('success') else None
-            if run.success and stats is not None:
-                per_bag_drifts.append(float(stats['drift_m']))
-            else:
-                per_bag_drifts.append(failure_penalty_m)
+        # Compute and record every registered metric (not just the ones we
+        # optimize on) so post-hoc analysis can rank by any of them.
+        all_values: dict[str, float] = {}
+        per_bag_breakdown: dict[str, list[float]] = {}
+        for name, spec in METRICS.items():
+            mean, per_bag = _aggregate_metric(spec, result.runs)
+            all_values[name] = mean
+            per_bag_breakdown[name] = per_bag
 
-        trial.set_user_attr('per_bag_drifts', per_bag_drifts)
+        # Renamed from 'all_metric_means' (which it never was, even before the
+        # switch from mean→median) to be aggregation-agnostic. Old studies'
+        # user_attrs still carry the old key; analysis code below handles both.
+        trial.set_user_attr('all_metric_aggregates', all_values)
+        trial.set_user_attr('per_bag', per_bag_breakdown)
         trial.set_user_attr('n_bags_successful',
                             sum(1 for r in result.runs if r.success))
         if domain_id is not None:
             trial.set_user_attr('ros_domain_id', domain_id)
-        return sum(per_bag_drifts) / len(per_bag_drifts)
+
+        objective_values = tuple(all_values[m] for m in metrics)
+        return objective_values[0] if len(specs) == 1 else objective_values
+
     return objective
 
 
@@ -226,53 +323,161 @@ def make_synthetic_objective(
 # Study runner
 # ---------------------------------------------------------------------------
 def run_study(
-    objective: Callable[[optuna.Trial], float],
+    objective,
     *,
     study_name: str,
     storage: str,
     n_trials: int,
+    metrics: list[str],
     seed: int = 42,
     callbacks: Optional[list] = None,
     n_jobs: int = 1,
 ) -> optuna.Study:
-    sampler = optuna.samplers.TPESampler(seed=seed)
-    study = optuna.create_study(
-        direction='minimize',
-        sampler=sampler,
-        study_name=study_name,
-        storage=storage,
-        load_if_exists=True,
-    )
-    study.optimize(objective, n_trials=n_trials, callbacks=callbacks or [], n_jobs=n_jobs)
+    directions = [METRICS[m].direction for m in metrics]
+    if len(metrics) == 1:
+        sampler = optuna.samplers.TPESampler(seed=seed)
+        study = optuna.create_study(
+            direction=directions[0],
+            sampler=sampler,
+            study_name=study_name,
+            storage=storage,
+            load_if_exists=True,
+        )
+    else:
+        # NSGA-II handles Pareto frontiers cleanly for 2-4 objectives.
+        sampler = optuna.samplers.NSGAIISampler(seed=seed)
+        study = optuna.create_study(
+            directions=directions,
+            sampler=sampler,
+            study_name=study_name,
+            storage=storage,
+            load_if_exists=True,
+        )
+    _resilient_optimize(study, objective, n_trials=n_trials,
+                        callbacks=callbacks or [], n_jobs=n_jobs)
     return study
 
 
-def write_study_summary(study: optuna.Study, output_path: Path) -> None:
-    finished = [t for t in study.trials if t.value is not None]
-    best = study.best_trial if finished else None
-    top5 = sorted(finished, key=lambda t: t.value)[:5]
+def _resilient_optimize(
+    study: optuna.Study,
+    objective,
+    *,
+    n_trials: int,
+    callbacks: list,
+    n_jobs: int,
+    max_consecutive_crashes: int = 5,
+) -> None:
+    """Wrap ``study.optimize`` so that an Optuna-level crash (e.g. the
+    ``Cannot tell a FAIL trial`` race triggered when external SQL or another
+    process mutates a RUNNING trial mid-flight) doesn't kill the whole run.
+
+    Each iteration:
+      1. Call ``study.optimize(n_trials=remaining)``.
+      2. On internal Optuna error (UpdateFinishedTrialError / its secondary
+         ValueError from ``_tell``), mark any leftover RUNNING trials as FAIL
+         so the next iteration starts from a clean slate, then retry.
+      3. Count completed trials each iteration to know progress; if multiple
+         iterations make ZERO progress in a row, give up — the failure is
+         persistent, not just a race.
+    """
+    target_completed = (
+        len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+        + n_trials
+    )
+    consecutive_no_progress = 0
+
+    while True:
+        completed_now = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+        remaining = target_completed - completed_now
+        if remaining <= 0:
+            break
+
+        try:
+            study.optimize(objective, n_trials=remaining, callbacks=callbacks, n_jobs=n_jobs)
+            break  # natural completion
+        except (ValueError, optuna.exceptions.UpdateFinishedTrialError) as exc:
+            print(f'[run_study] {type(exc).__name__}: {exc}', flush=True)
+            print('[run_study] cleaning up orphan RUNNING trials and resuming...', flush=True)
+            for t in study.get_trials(
+                states=(optuna.trial.TrialState.RUNNING,), deepcopy=False
+            ):
+                try:
+                    study._storage.set_trial_state_values(
+                        t._trial_id, state=optuna.trial.TrialState.FAIL
+                    )
+                except Exception:
+                    pass
+
+            done_after = len(
+                [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+            )
+            progressed = done_after > completed_now
+            consecutive_no_progress = 0 if progressed else consecutive_no_progress + 1
+            if consecutive_no_progress >= max_consecutive_crashes:
+                print(
+                    f'[run_study] aborting: {max_consecutive_crashes} crashes in a row '
+                    f'without any trial completing — failure looks persistent, not a race.',
+                    flush=True,
+                )
+                raise
+
+
+def write_study_summary(study: optuna.Study, output_path: Path, metrics: list[str]) -> None:
+    # Optuna raises on FrozenTrial.value during multi-objective studies (only
+    # .values is valid then), and vice-versa. Pick which attribute to read
+    # based on the configured metric count.
+    multi = len(metrics) > 1
+
+    def trial_obj_values(t: optuna.trial.FrozenTrial) -> Optional[list[float]]:
+        if multi:
+            return list(t.values) if t.values is not None else None
+        return [t.value] if t.value is not None else None
+
+    finished = [
+        t for t in study.trials
+        if t.state == optuna.trial.TrialState.COMPLETE and trial_obj_values(t) is not None
+    ]
+
+    def trial_payload(t: optuna.trial.FrozenTrial) -> dict:
+        attrs = dict(t.user_attrs)
+        vals = trial_obj_values(t) or []
+        # Read either the new or legacy key (older trials predate the rename).
+        all_agg = attrs.get('all_metric_aggregates') or attrs.get('all_metric_means', {})
+        return {
+            'number': t.number,
+            'objective_values': {m: v for m, v in zip(metrics, vals)},
+            'all_metric_aggregates': all_agg,
+            'params': t.params,
+            'user_attrs': attrs,
+        }
+
+    # For each requested metric, list the top 5 trials by that metric.
+    top_per_metric: dict[str, list[dict]] = {}
+    for i, m in enumerate(metrics):
+        reverse = METRICS[m].direction == 'maximize'
+        def keyfn(t, idx=i):
+            vals = trial_obj_values(t)
+            return vals[idx] if vals is not None else float('inf')
+        sorted_trials = sorted(finished, key=keyfn, reverse=reverse)
+        top_per_metric[m] = [trial_payload(t) for t in sorted_trials[:5]]
 
     summary = {
         'study_name': study.study_name,
-        'direction': study.direction.name,
+        'metrics': metrics,
+        'directions': [METRICS[m].direction for m in metrics],
         'n_trials_total': len(study.trials),
         'n_trials_finished': len(finished),
-        'best_trial': None if best is None else {
-            'number': best.number,
-            'value': best.value,
-            'params': best.params,
-            'user_attrs': dict(best.user_attrs),
-        },
-        'top_5': [
-            {
-                'number': t.number,
-                'value': t.value,
-                'params': t.params,
-                'user_attrs': dict(t.user_attrs),
-            }
-            for t in top5
-        ],
+        'top_5_per_metric': top_per_metric,
     }
+
+    if multi:
+        # Multi-objective: the Pareto front is the set of non-dominated trials.
+        pareto = study.best_trials
+        summary['pareto_front'] = [trial_payload(t) for t in pareto]
+    else:
+        # Single-objective: the unique best trial is unambiguous.
+        summary['best_trial'] = top_per_metric[metrics[0]][0] if finished else None
+
     output_path.write_text(json.dumps(summary, indent=2, sort_keys=True))
 
 
@@ -302,12 +507,23 @@ def main() -> int:
     parser.add_argument('--n-trials', type=int, default=30)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument(
+        '--metric', action='append', default=[], dest='metrics',
+        choices=sorted(METRICS),
+        help='Metric to optimize. Repeat for multi-objective (Pareto) optimization '
+             'with NSGA-II. Default: drift_per_path. All metrics are always tracked '
+             'in trial.user_attrs regardless of which drive the search.',
+    )
+    parser.add_argument(
         '--failure-penalty-m', type=float, default=100.0,
-        help='Drift contribution for a failed bag (default: 100m).',
+        help='(Legacy; ignored — per-metric fail_value in METRICS is now used.)',
     )
     parser.add_argument(
         '--list-search-space', action='store_true',
         help='Print the current search space and exit.',
+    )
+    parser.add_argument(
+        '--list-metrics', action='store_true',
+        help='Print all registered metrics and their directions, then exit.',
     )
 
     # Pass-through to the trial runner.
@@ -341,6 +557,14 @@ def main() -> int:
             print(f'{key}: {spec}')
         return 0
 
+    if args.list_metrics:
+        for name, spec in METRICS.items():
+            print(f'{name:24s}  direction={spec.direction:<8s}  fail_value={spec.fail_value}')
+        return 0
+
+    if not args.metrics:
+        args.metrics = ['drift_per_path']
+
     if args.output_root is None:
         parser.error('--output-root is required unless --list-search-space is given')
 
@@ -368,7 +592,7 @@ def main() -> int:
             drain_s=args.drain_s,
             shutdown_timeout_s=args.shutdown_timeout_s,
             max_bag_duration_s=args.max_bag_duration_s,
-            failure_penalty_m=args.failure_penalty_m,
+            metrics=args.metrics,
             domain_pool=domain_pool,
         )
     else:
@@ -376,15 +600,25 @@ def main() -> int:
 
     storage = f'sqlite:///{args.output_root.resolve()}/optuna.db'
 
+    metrics = args.metrics
+    multi = len(metrics) > 1
+
     def progress(study: optuna.Study, trial: optuna.trial.FrozenTrial) -> None:
-        try:
-            best_val = study.best_value
-        except ValueError:
-            best_val = float('inf')
-        val_s = 'failed' if trial.value is None else f'{trial.value:.4f}'
-        # flush=True so progress shows up live when stdout is redirected to a
-        # file (the default Python stdout buffering hides progress otherwise).
-        print(f'[trial {trial.number:04d}] value={val_s}  best_so_far={best_val:.4f}', flush=True)
+        if multi:
+            vals = trial.values
+            val_s = 'failed' if vals is None else ', '.join(f'{v:.4f}' for v in vals)
+            try:
+                n_pareto = len(study.best_trials)
+            except Exception:
+                n_pareto = 0
+            print(f'[trial {trial.number:04d}] values=({val_s})  pareto_size={n_pareto}', flush=True)
+        else:
+            try:
+                best_val = study.best_value
+            except ValueError:
+                best_val = float('inf')
+            val_s = 'failed' if trial.value is None else f'{trial.value:.4f}'
+            print(f'[trial {trial.number:04d}] {metrics[0]}={val_s}  best_so_far={best_val:.4f}', flush=True)
 
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     study = run_study(
@@ -392,23 +626,45 @@ def main() -> int:
         study_name=args.study_name,
         storage=storage,
         n_trials=args.n_trials,
+        metrics=metrics,
         seed=args.seed,
         callbacks=[progress],
         n_jobs=args.n_jobs,
     )
 
     summary_path = args.output_root / 'study_summary.json'
-    write_study_summary(study, summary_path)
+    write_study_summary(study, summary_path, metrics)
 
     print()
-    try:
-        best = study.best_trial
-        print(f'Best trial: #{best.number}  value={best.value:.4f}')
-        print('Best params:')
-        for k, v in sorted(best.params.items()):
-            print(f'  {k} = {v}')
-    except ValueError:
-        print('No successful trials.')
+    if multi:
+        try:
+            pareto = study.best_trials
+        except Exception:
+            pareto = []
+        print(f'Pareto front: {len(pareto)} non-dominated trials')
+        print(f'Top trial per metric:')
+        for i, m in enumerate(metrics):
+            direction = METRICS[m].direction
+            reverse = direction == 'maximize'
+            try:
+                best = sorted(
+                    [t for t in study.trials if t.values is not None],
+                    key=lambda t, i=i: t.values[i],
+                    reverse=reverse,
+                )[0]
+                vstr = ', '.join(f'{mm}={v:.4f}' for mm, v in zip(metrics, best.values))
+                print(f'  {m} ({direction}): trial #{best.number}  ({vstr})')
+            except IndexError:
+                print(f'  {m}: no finished trials')
+    else:
+        try:
+            best = study.best_trial
+            print(f'Best trial: #{best.number}  {metrics[0]}={best.value:.4f}')
+            print('Best params:')
+            for k, v in sorted(best.params.items()):
+                print(f'  {k} = {v}')
+        except ValueError:
+            print('No successful trials.')
     print(f'Summary: {summary_path}')
     return 0
 
