@@ -296,6 +296,7 @@ def make_real_objective(
     metrics: list[str],
     search_space: dict[str, tuple] = SEARCH_SPACE,
     domain_pool: Optional[queue.Queue] = None,
+    n_reps_per_trial: int = 1,
 ):
     """Build an Optuna objective that runs ``run_trial`` and returns one value
     per requested metric. When a single metric is requested, returns a scalar
@@ -304,52 +305,68 @@ def make_real_objective(
 
     All available metrics are always written to ``trial.user_attrs`` for
     post-hoc analysis, regardless of which were used to drive the search.
+
+    ``n_reps_per_trial`` runs the bag set N times per Optuna trial and reports
+    the median over reps. RTAB-Map is measurably non-deterministic
+    (~5× variance in drift_m observed at N=3); averaging defeats that noise
+    at N× wall-time cost. N=3 typically halves the effective noise.
     """
     specs = [METRICS[m] for m in metrics]
+    n_reps = max(1, int(n_reps_per_trial))
 
     def objective(trial: optuna.Trial):
         overrides = suggest_params(trial, search_space)
-        trial_id = f'trial_{trial.number:04d}'
+        base_id = f'trial_{trial.number:04d}'
 
-        domain_id = None
-        if domain_pool is not None:
-            domain_id = domain_pool.get()
+        # Run N reps; each rep gets its own subdir if n_reps > 1.
+        rep_aggregates: list[dict[str, float]] = []
+        rep_per_bag: list[dict[str, list[float]]] = []
+        rep_success_counts: list[int] = []
+        for rep in range(n_reps):
+            trial_id = base_id if n_reps == 1 else f'{base_id}_rep_{rep:02d}'
 
-        try:
-            result = run_trial(
-                trial_id=trial_id,
-                overrides=overrides,
-                bags=bags,
-                output_root=output_root,
-                env=env,
-                warmup_s=warmup_s,
-                drain_s=drain_s,
-                shutdown_timeout_s=shutdown_timeout_s,
-                max_bag_duration_s=max_bag_duration_s,
-                ros_domain_id=domain_id,
-            )
-        finally:
-            if domain_id is not None:
-                domain_pool.put(domain_id)
+            domain_id = None
+            if domain_pool is not None:
+                domain_id = domain_pool.get()
+            try:
+                result = run_trial(
+                    trial_id=trial_id,
+                    overrides=overrides,
+                    bags=bags,
+                    output_root=output_root,
+                    env=env,
+                    warmup_s=warmup_s,
+                    drain_s=drain_s,
+                    shutdown_timeout_s=shutdown_timeout_s,
+                    max_bag_duration_s=max_bag_duration_s,
+                    ros_domain_id=domain_id,
+                )
+            finally:
+                if domain_id is not None:
+                    domain_pool.put(domain_id)
 
-        # Compute and record every registered metric (not just the ones we
-        # optimize on) so post-hoc analysis can rank by any of them.
+            rep_aggs: dict[str, float] = {}
+            rep_pb: dict[str, list[float]] = {}
+            for name, spec in METRICS.items():
+                agg, per_bag = _aggregate_metric(spec, result.runs)
+                rep_aggs[name] = agg
+                rep_pb[name] = per_bag
+            rep_aggregates.append(rep_aggs)
+            rep_per_bag.append(rep_pb)
+            rep_success_counts.append(sum(1 for r in result.runs if r.success))
+
+        # Median over reps per metric — defeats single-run noise.
         all_values: dict[str, float] = {}
-        per_bag_breakdown: dict[str, list[float]] = {}
-        for name, spec in METRICS.items():
-            mean, per_bag = _aggregate_metric(spec, result.runs)
-            all_values[name] = mean
-            per_bag_breakdown[name] = per_bag
+        for name in METRICS:
+            vals = [r[name] for r in rep_aggregates]
+            all_values[name] = statistics.median(vals)
 
-        # Renamed from 'all_metric_means' (which it never was, even before the
-        # switch from mean→median) to be aggregation-agnostic. Old studies'
-        # user_attrs still carry the old key; analysis code below handles both.
         trial.set_user_attr('all_metric_aggregates', all_values)
-        trial.set_user_attr('per_bag', per_bag_breakdown)
-        trial.set_user_attr('n_bags_successful',
-                            sum(1 for r in result.runs if r.success))
-        if domain_id is not None:
-            trial.set_user_attr('ros_domain_id', domain_id)
+        trial.set_user_attr('per_bag', rep_per_bag[0] if n_reps == 1 else rep_per_bag)
+        trial.set_user_attr('n_bags_successful', rep_success_counts[0] if n_reps == 1 else rep_success_counts)
+        if n_reps > 1:
+            trial.set_user_attr('n_reps', n_reps)
+            trial.set_user_attr('rep_aggregates', rep_aggregates)
 
         objective_values = tuple(all_values[m] for m in metrics)
         return objective_values[0] if len(specs) == 1 else objective_values
@@ -646,6 +663,14 @@ def main() -> int:
              "Use `=` binding (e.g. `--bag-play-arg=--topics`) when the value starts with `--`.",
     )
     parser.add_argument(
+        '--n-reps-per-trial', type=int, default=1,
+        help='Number of times to run the bag set per Optuna trial. The trial '
+             'score becomes the median across reps. RTAB-Map is empirically '
+             'non-deterministic (~5x variance on identical reruns); N=3-5 '
+             'defeats most of that noise at N-fold wall-time cost. '
+             'See experiments/nondeterminism_3rep.md.',
+    )
+    parser.add_argument(
         '--n-jobs', type=int, default=1,
         help='Number of trials to run in parallel. Each concurrent worker gets a unique '
              'ROS_DOMAIN_ID so DDS topics stay isolated. Reserved domains (0 and 96) are '
@@ -709,6 +734,7 @@ def main() -> int:
             max_bag_duration_s=args.max_bag_duration_s,
             metrics=args.metrics,
             domain_pool=domain_pool,
+            n_reps_per_trial=args.n_reps_per_trial,
         )
     else:
         objective = make_synthetic_objective()
