@@ -176,6 +176,36 @@ def build_domain_pool(n_workers: int, exclude: frozenset[int] = RESERVED_DOMAIN_
 #   ('float', low, high, log_scale)
 #   ('int',   low, high)
 #   ('cat',   [choices...])
+# Narrow search space anchored on trial #367's params (the best deployment
+# candidate found in capra_full_v1, with max_drift_per_path=0.16 across 8
+# bags). Each tunable is ±~50% around #367's value (or matching a sensible
+# scale on log-uniform params). Used when the goal is "find a better
+# neighbor of a known-good point" rather than full exploration — high-prior
+# TPE will converge fast inside this region. Anchor values from
+# /home/iliana/prog/study_full/trial_0367/params.json.
+SEARCH_SPACE_NEAR_367: dict[str, tuple] = {
+    # ICP shared — anchor ±30-50% around #367's values
+    'icp_voxel_size':                  ('float', 0.030, 0.080, True),   # was 0.054
+    'icp_max_correspondence_distance': ('float', 0.060, 0.200, True),   # was 0.094
+    'icp_iterations':                  ('int', 10, 30),                  # was 15
+    'icp_outlier_ratio':               ('float', 0.10, 0.30, False),     # was 0.164
+    'icp_max_translation':             ('float', 0.20, 0.60, False),     # was 0.345
+    'icp_point_to_plane_k':            ('int', 15, 40),                  # was 27
+    'icp_strategy':                    ('cat', ['1']),                   # locked: was 1
+    # ICP odometry
+    'odom_scan_keyframe_thr':          ('float', 0.60, 0.90, False),     # was 0.836
+    'odomf2m_scan_max_size':           ('int', 10000, 30000),            # was 20541
+    'odomf2m_scan_subtract_radius':    ('float', 0.03, 0.10, True),      # was 0.055
+    'icp_odom_correspondence_ratio':   ('float', 0.08, 0.20, False),     # was 0.146
+    # RTAB-Map / memory
+    'rgbd_linear_update':              ('float', 0.15, 0.45, False),     # was 0.288
+    'rgbd_angular_update':             ('float', 0.04, 0.15, False),     # was 0.077
+    'mem_stm_size':                    ('int', 8, 15),                   # was 12
+    'icp_map_correspondence_ratio':    ('float', 0.07, 0.20, False),     # was 0.119
+    'rgbd_proximity_path_max_neighbors': ('int', 2, 6),                  # was 3
+}
+
+
 SEARCH_SPACE: dict[str, tuple] = {
     # ICP shared. voxel_size and max_correspondence_distance ranges narrowed
     # after observing that large-voxel optima (~0.3m) cause visible ghosting
@@ -637,6 +667,13 @@ def main() -> int:
         help='(Legacy; ignored — per-metric fail_value in METRICS is now used.)',
     )
     parser.add_argument(
+        '--search-space', choices=['wide', 'near_367'], default='wide',
+        help='Which preconfigured search space to use. "wide" (default) is '
+             'the original 16-dim exploration ranges. "near_367" is narrowed '
+             'to ±~30-50%% around trial #367\'s values for refining a '
+             'known-good neighborhood.',
+    )
+    parser.add_argument(
         '--list-search-space', action='store_true',
         help='Print the current search space and exit.',
     )
@@ -679,8 +716,12 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # Pick search space by --search-space.
+    space = SEARCH_SPACE_NEAR_367 if args.search_space == 'near_367' else SEARCH_SPACE
+
     if args.list_search_space:
-        for key, spec in SEARCH_SPACE.items():
+        print(f'(--search-space {args.search_space})')
+        for key, spec in space.items():
             print(f'{key}: {spec}')
         return 0
 
@@ -735,9 +776,10 @@ def main() -> int:
             metrics=args.metrics,
             domain_pool=domain_pool,
             n_reps_per_trial=args.n_reps_per_trial,
+            search_space=space,
         )
     else:
-        objective = make_synthetic_objective()
+        objective = make_synthetic_objective(search_space=space)
 
     storage = f'sqlite:///{args.output_root.resolve()}/optuna.db'
 
