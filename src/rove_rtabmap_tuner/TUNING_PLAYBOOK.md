@@ -5,8 +5,13 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 ## TL;DR — recommended deployment params
 
 From `capra_full_v1` (700-trial study), **trial #367** is the established
-robust baseline: drift/path ≤ 0.16 on every scored bag with loop closures
-firing across the board.
+robust baseline. **3-rep validation result** (see
+`experiments/trial_367_validation_3rep.md`): **median worst-bag drift ≈
+0.27** across the 9 certain-loop bags. The previously claimed "max=0.16"
+was a lucky single-rep number; reproducible deployment should expect
+0.25-0.30 worst-bag drift, with the bottleneck consistently being
+`moving_short_bag2` (0.21-0.52 across reps). Long bags are reliably
+≤0.05 drift.
 
 **Candidate refinement (partial validation):** `capra_focus_v2` trial #4
 hit drift/path **0.023-0.082 on 5 of 6 bags** before the run was killed
