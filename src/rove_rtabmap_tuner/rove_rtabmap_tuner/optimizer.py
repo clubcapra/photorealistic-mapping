@@ -27,7 +27,12 @@ from typing import Callable, Optional
 
 import optuna
 
-from .trial_runner import EnvConfig, run_trial
+from .trial_runner import (
+    EnvConfig,
+    cleanup_orphan_trials,
+    install_shutdown_handler,
+    run_trial,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +398,21 @@ def run_study(
             storage=storage,
             load_if_exists=True,
         )
+
+    # Self-heal: any RUNNING trials from a previous force-kill are stale.
+    # Mark them FAIL before resuming so TPE doesn't try to read their
+    # nonexistent results and crash with "Cannot tell a FAIL trial."
+    stale = [
+        t for t in study.get_trials(deepcopy=False, states=(optuna.trial.TrialState.RUNNING,))
+    ]
+    for t in stale:
+        try:
+            study._storage.set_trial_state_values(t._trial_id, state=optuna.trial.TrialState.FAIL)
+        except Exception:
+            pass
+    if stale:
+        print(f'[startup] marked {len(stale)} stale RUNNING trials as FAIL', flush=True)
+
     _resilient_optimize(study, objective, n_trials=n_trials,
                         callbacks=callbacks or [], n_jobs=n_jobs)
     return study
@@ -609,6 +629,19 @@ def main() -> int:
         parser.error('--output-root is required unless --list-search-space is given')
 
     args.output_root.mkdir(parents=True, exist_ok=True)
+
+    # Install SIGINT/SIGTERM handler so force-kill terminates all subprocess
+    # groups instead of orphaning rtabmap / ros2 bag children.
+    install_shutdown_handler()
+
+    # Self-heal from any previous force-kill: clean up trial directories
+    # that lack a trial.json marker (incomplete trials), and mark any
+    # RUNNING rows in the Optuna DB as FAIL. Done before we touch the study
+    # so TPE doesn't get confused by half-written priors.
+    cleanup_stats = cleanup_orphan_trials(args.output_root)
+    if cleanup_stats['removed']:
+        print(f'[startup] cleaned up {cleanup_stats["removed"]} incomplete trial dirs '
+              f'(of {cleanup_stats["inspected"]} inspected)', flush=True)
 
     if args.objective == 'real':
         if not args.bags:

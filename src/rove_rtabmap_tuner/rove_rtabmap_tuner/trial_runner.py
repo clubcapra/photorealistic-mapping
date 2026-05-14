@@ -23,11 +23,15 @@ Outputs (rooted at ``<output-root>/<trial-id>/``):
 from __future__ import annotations
 
 import argparse
+import atexit
 import dataclasses
 import json
 import os
+import shutil
 import signal
 import subprocess
+import sys
+import threading
 import time
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -35,6 +39,127 @@ from typing import Optional
 
 from .scoring import score_run
 from .template_renderer import effective_params, render
+
+
+# ---------------------------------------------------------------------------
+# Subprocess registry + shutdown handler
+# ---------------------------------------------------------------------------
+# When the user force-kills the optimizer (Ctrl-C or `kill <pid>`), any
+# subprocess.Popen children we spawned with start_new_session=True will be
+# orphaned — `ros2 launch` and its grandchildren (rtabmap, icp_odometry,
+# lidar_deskewing, imu_to_tf) keep running, holding DDS sockets and the
+# rtabmap.db file open. Next time the user starts the optimizer they hit a
+# zombie mess plus stale RUNNING rows in the Optuna DB.
+#
+# Two-layer defense:
+#   1. Live registry: every Popen spawned by run_single_bag is added here.
+#      On SIGINT/SIGTERM we walk the registry and SIGINT each subprocess
+#      group, escalating to SIGTERM/SIGKILL if needed.
+#   2. Startup self-heal: see `cleanup_orphan_trials()` — called from the
+#      optimizer entrypoint so SIGKILL leftovers also get cleaned up next run.
+
+_ACTIVE_PROCS: set = set()
+_PROCS_LOCK = threading.Lock()
+_SHUTDOWN_IN_PROGRESS = threading.Event()
+
+
+def _register_proc(proc: subprocess.Popen) -> None:
+    with _PROCS_LOCK:
+        _ACTIVE_PROCS.add(proc)
+
+
+def _unregister_proc(proc: subprocess.Popen) -> None:
+    with _PROCS_LOCK:
+        _ACTIVE_PROCS.discard(proc)
+
+
+def _kill_proc_group_escalating(proc: subprocess.Popen) -> None:
+    """SIGINT → SIGTERM → SIGKILL on the proc's session group."""
+    if proc.poll() is not None:
+        return
+    try:
+        pgid = os.getpgid(proc.pid)
+    except ProcessLookupError:
+        return
+    for sig, timeout in ((signal.SIGINT, 5.0), (signal.SIGTERM, 3.0), (signal.SIGKILL, 1.0)):
+        try:
+            os.killpg(pgid, sig)
+        except ProcessLookupError:
+            return
+        try:
+            proc.wait(timeout=timeout)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def _emergency_shutdown(signum=None, frame=None) -> None:
+    """Catch SIGINT/SIGTERM, kill every tracked subprocess group, exit.
+
+    Idempotent — running twice is harmless. Marked as the signal handler for
+    SIGINT and SIGTERM; also registered with atexit so abnormal exits via
+    SystemExit also clean up.
+    """
+    if _SHUTDOWN_IN_PROGRESS.is_set():
+        return
+    _SHUTDOWN_IN_PROGRESS.set()
+
+    with _PROCS_LOCK:
+        procs = list(_ACTIVE_PROCS)
+
+    if procs:
+        print(f'\n[shutdown] killing {len(procs)} subprocess group(s)...', flush=True)
+        for proc in procs:
+            _kill_proc_group_escalating(proc)
+
+    if signum is not None:
+        # Re-raise the default handler so the parent sees the right exit code.
+        # Use os._exit to avoid running additional atexit handlers that could
+        # try to touch the DB after we've already cleaned up.
+        os._exit(130 if signum == signal.SIGINT else 143)
+
+
+def install_shutdown_handler() -> None:
+    """Call once at process startup. Installs SIGINT/SIGTERM handlers and an
+    atexit hook so all live subprocesses get a proper takedown on exit.
+    """
+    signal.signal(signal.SIGINT, _emergency_shutdown)
+    signal.signal(signal.SIGTERM, _emergency_shutdown)
+    atexit.register(_emergency_shutdown)
+
+
+# ---------------------------------------------------------------------------
+# Startup self-heal: clean up incomplete trial dirs and stale RUNNING rows
+# ---------------------------------------------------------------------------
+def cleanup_orphan_trials(output_root: Path, *, delete_dirs: bool = True) -> dict:
+    """Walk the study output root and delete any trial directory that lacks
+    a ``trial.json`` (the marker we write at end of run_trial).
+
+    Doesn't touch the Optuna DB — that's the optimizer's job to mark RUNNING
+    as FAIL via Optuna's API before invoking optimize. We just clean the
+    on-disk artifacts so subsequent runs don't have to navigate a thousand
+    half-empty trial dirs.
+
+    Returns a small stats dict.
+    """
+    if not output_root.is_dir():
+        return {'inspected': 0, 'removed': 0, 'kept': 0}
+    inspected = removed = kept = 0
+    for child in sorted(output_root.iterdir()):
+        if not child.is_dir() or not child.name.startswith('trial_'):
+            continue
+        inspected += 1
+        trial_json = child / 'trial.json'
+        if trial_json.exists():
+            kept += 1
+            continue
+        if delete_dirs:
+            try:
+                shutil.rmtree(child)
+                removed += 1
+            except OSError:
+                pass
+    return {'inspected': inspected, 'removed': removed, 'kept': kept}
 
 
 @dataclass
@@ -187,10 +312,12 @@ def run_single_bag(
                 start_new_session=True,
                 env=proc_env,
             )
+            _register_proc(launch_proc)
 
             time.sleep(warmup_s)
 
             if launch_proc.poll() is not None:
+                _unregister_proc(launch_proc)
                 return BagRunResult(
                     bag_path=str(bag_path),
                     db_path=None,
@@ -212,11 +339,13 @@ def run_single_bag(
                     start_new_session=True,
                     env=proc_env,
                 )
+                _register_proc(bag_proc)
                 try:
                     bag_proc.wait(timeout=max_bag_duration_s)
                 except subprocess.TimeoutExpired:
                     bag_timed_out = True
                     _terminate_process_group(bag_proc, sigint_timeout_s=10.0)
+                _unregister_proc(bag_proc)
             # Build a stand-in result so the rest of the function can stay generic.
             bag_returncode = bag_proc.returncode
 
@@ -225,6 +354,7 @@ def run_single_bag(
         # Outside the launch_log context: SIGINT the launch group and wait
         # for it to flush rtabmap.db on shutdown.
         _terminate_process_group(launch_proc, shutdown_timeout_s)
+        _unregister_proc(launch_proc)
         launch_proc = None
 
         duration = time.time() - start
@@ -270,6 +400,7 @@ def run_single_bag(
     finally:
         if launch_proc is not None and launch_proc.poll() is None:
             _terminate_process_group(launch_proc, shutdown_timeout_s)
+            _unregister_proc(launch_proc)
 
 
 def run_trial(
