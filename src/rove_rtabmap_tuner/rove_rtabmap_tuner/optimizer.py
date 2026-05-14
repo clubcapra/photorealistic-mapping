@@ -46,6 +46,7 @@ class MetricSpec:
     direction: str              # 'minimize' or 'maximize'
     extract: Callable[[dict], float]
     fail_value: float           # contributed when a bag run failed
+    aggregator: str = 'median'  # 'median' | 'max' | 'min' | 'mean'
 
 
 METRICS: dict[str, MetricSpec] = {
@@ -56,12 +57,32 @@ METRICS: dict[str, MetricSpec] = {
         extract=lambda s: float(s['drift_m']),
         fail_value=5.0,
     ),
-    # Drift normalized by path length. More comparable across bags of
-    # different lengths; bounded ~[0, 1] for sensible runs.
+    # Drift normalized by path length (median across bags — rewards "typical
+    # bag is OK"). Less sensitive to a single failed bag than mean.
     'drift_per_path': MetricSpec(
         'drift_per_path', 'minimize',
         extract=lambda s: float(s.get('drift_per_path') or 1.0),
         fail_value=1.0,
+    ),
+    # Worst-bag drift_per_path (max across bags). The "did we lose tracking
+    # on ANY bag?" metric. If any bag shows catastrophic drift, this captures
+    # it; median would hide a single-bag failure as long as 5+ others were OK.
+    # Use this as the primary optimization target when tracking robustness
+    # matters more than typical-case quality.
+    'max_drift_per_path': MetricSpec(
+        'max_drift_per_path', 'minimize',
+        extract=lambda s: float(s.get('drift_per_path') or 1.0),
+        fail_value=1.0,
+        aggregator='max',
+    ),
+    # Worst-bag absolute drift (max across bags). For the same robustness
+    # intent but in raw meters — easier to interpret as "no bag drifts more
+    # than X meters."
+    'max_drift_m': MetricSpec(
+        'max_drift_m', 'minimize',
+        extract=lambda s: float(s['drift_m']),
+        fail_value=5.0,
+        aggregator='max',
     ),
     # ICP odometry health: mean correspondence ratio over all scan registrations.
     # Higher = scans align cleanly. Ghosting almost always has low values here.
@@ -124,7 +145,12 @@ SEARCH_SPACE: dict[str, tuple] = {
     'icp_outlier_ratio':               ('float', 0.1, 0.9, False),
     'icp_max_translation':             ('float', 0.1, 2.0, False),
     'icp_point_to_plane_k':            ('int', 5, 50),
-    'icp_strategy':                    ('cat', ['0', '1', '2']),
+    # icp_strategy '2' = PCL Generalized ICP. Removed from the search space
+    # because rtabmap_odom segfaults on it (exit code -11) for many real
+    # point-cloud distributions. Reproduced consistently across trials in
+    # capra_full_v1 (470+) and matches a known PCL GICP eigendecomposition
+    # crash. '0' (PCL point-to-point) and '1' (libpointmatcher) are stable.
+    'icp_strategy':                    ('cat', ['0', '1']),
 
     # ICP odometry. Ranges narrowed after observing 4/5 trials with the wider
     # bounds reject every scan ("no odometry poses"). The most sensitive knob
@@ -179,14 +205,12 @@ def suggest_params(
 # Real objective
 # ---------------------------------------------------------------------------
 def _aggregate_metric(metric: MetricSpec, bag_results) -> tuple[float, list[float]]:
-    """**Median** across bags. Bags with no usable trajectory contribute
-    ``fail_value``. Returns (median, per_bag_values).
+    """Aggregate per-bag values into a single score per the metric's
+    ``aggregator`` field. Returns (aggregated_value, per_bag_values).
 
-    Median (vs mean) is essential when some bags fail reliably: a single
-    failed bag adds ``fail_value`` to the input list, but median picks the
-    middle value — so a few stubbornly-bad bags don't drag the trial score
-    to the math floor of ``2 * fail_value / N``. The optimizer can then see
-    actual improvement on the typical bag.
+    Median rewards "typical bag is OK"; max rewards "every bag is OK" (which
+    matters more when tracking-loss on any single bag is the failure mode
+    we care about). Failed bags contribute ``fail_value`` to the input list.
     """
     values: list[float] = []
     for run in bag_results:
@@ -199,7 +223,18 @@ def _aggregate_metric(metric: MetricSpec, bag_results) -> tuple[float, list[floa
                 values.append(metric.fail_value)
         else:
             values.append(metric.fail_value)
-    return (statistics.median(values) if values else metric.fail_value), values
+
+    if not values:
+        return metric.fail_value, values
+    if metric.aggregator == 'median':
+        return statistics.median(values), values
+    if metric.aggregator == 'max':
+        return max(values), values
+    if metric.aggregator == 'min':
+        return min(values), values
+    if metric.aggregator == 'mean':
+        return sum(values) / len(values), values
+    raise ValueError(f'unknown aggregator {metric.aggregator!r} for metric {metric.name!r}')
 
 
 def make_real_objective(
@@ -344,8 +379,13 @@ def run_study(
             load_if_exists=True,
         )
     else:
-        # NSGA-II handles Pareto frontiers cleanly for 2-4 objectives.
-        sampler = optuna.samplers.NSGAIISampler(seed=seed)
+        # Multi-objective TPE (replaces NSGAIISampler after observing NSGA-II
+        # plateau on capra_full_v1 — 100+ trials with no new Pareto contributions).
+        # TPESampler in Optuna 4.x handles multi-objective directly when the
+        # study has multiple `directions`. multivariate=True models parameter
+        # correlations (RTAB-Map's voxel size and correspondence distance are
+        # tightly coupled — independent sampling wastes most candidates).
+        sampler = optuna.samplers.TPESampler(seed=seed, multivariate=True)
         study = optuna.create_study(
             directions=directions,
             sampler=sampler,
