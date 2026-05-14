@@ -51,7 +51,27 @@ class MetricSpec:
     direction: str              # 'minimize' or 'maximize'
     extract: Callable[[dict], float]
     fail_value: float           # contributed when a bag run failed
-    aggregator: str = 'median'  # 'median' | 'max' | 'min' | 'mean'
+    aggregator: str = 'median'  # 'median' | 'max' | 'min' | 'mean' | 'q75' | 'q90'
+
+
+def _quantile(values: list[float], q: float) -> float:
+    """Linear-interpolation quantile (like numpy.quantile with method='linear').
+
+    Used for q75/q90 aggregators when worst-bag (max) is too sensitive to a
+    single failing bag, but median is too forgiving of "2 of 10 bags failed."
+    q75 = "75% of bags are at or below this drift" — moves with the worst
+    quartile, not the single worst bag.
+    """
+    if not values:
+        return 0.0
+    if len(values) == 1:
+        return float(values[0])
+    s = sorted(values)
+    idx = q * (len(s) - 1)
+    lo = int(idx)
+    hi = min(lo + 1, len(s) - 1)
+    frac = idx - lo
+    return s[lo] * (1.0 - frac) + s[hi] * frac
 
 
 METRICS: dict[str, MetricSpec] = {
@@ -88,6 +108,24 @@ METRICS: dict[str, MetricSpec] = {
         extract=lambda s: float(s['drift_m']),
         fail_value=5.0,
         aggregator='max',
+    ),
+    # 75th-percentile drift across bags. The middle ground between median
+    # (rewards "typical bag is OK", ignores 1-2 failures) and max (one bad
+    # bag dominates). Useful when there's structural variance between bags
+    # and a single hard-to-handle bag shouldn't dictate the entire score.
+    'q75_drift_per_path': MetricSpec(
+        'q75_drift_per_path', 'minimize',
+        extract=lambda s: float(s.get('drift_per_path') or 1.0),
+        fail_value=1.0,
+        aggregator='q75',
+    ),
+    # 90th-percentile drift — closer to max, but still allows the single
+    # worst bag to be an outlier rather than the optimization target.
+    'q90_drift_per_path': MetricSpec(
+        'q90_drift_per_path', 'minimize',
+        extract=lambda s: float(s.get('drift_per_path') or 1.0),
+        fail_value=1.0,
+        aggregator='q90',
     ),
     # ICP odometry health: mean correspondence ratio over all scan registrations.
     # Higher = scans align cleanly. Ghosting almost always has low values here.
@@ -239,6 +277,10 @@ def _aggregate_metric(metric: MetricSpec, bag_results) -> tuple[float, list[floa
         return min(values), values
     if metric.aggregator == 'mean':
         return sum(values) / len(values), values
+    if metric.aggregator == 'q75':
+        return _quantile(values, 0.75), values
+    if metric.aggregator == 'q90':
+        return _quantile(values, 0.90), values
     raise ValueError(f'unknown aggregator {metric.aggregator!r} for metric {metric.name!r}')
 
 
