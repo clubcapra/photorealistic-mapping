@@ -33,6 +33,7 @@ setup(
             'score_trial = rove_rtabmap_tuner.scoring:main',
             'rank_trials = rove_rtabmap_tuner.scoring:rank_main',
             'optimize = rove_rtabmap_tuner.optimizer:main',
+            'analyze_per_bag = rove_rtabmap_tuner.analyze_per_bag:main',
         ],
     },
 )
