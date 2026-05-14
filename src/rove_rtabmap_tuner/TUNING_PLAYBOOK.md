@@ -93,6 +93,29 @@ This cluster pattern suggests **per-bag-type tuning** could improve over a singl
 
 **For loss-of-tracking criterion: use q75 or q90.** Max is too sensitive to a single outlier bag. Median hides catastrophes.
 
+### 4. RTAB-Map appears to have measurable non-determinism
+
+Empirical observation from re-running trial #367's params: drift on
+`moving_long_bag1` was **0.046** in the original trial, **0.136** when
+re-run later with the same params. ~3× different score from the same input.
+
+This means:
+- The optimizer's objective is noisy. A trial that scores 0.05 might score
+  0.15 if re-run. TPE assumes a deterministic objective; with significant
+  noise, it converges slower and treats "lucky" trials as best.
+- Many of the "best" trials in capra_full_v1 may be partially lucky.
+  Trial #367's robust profile across 8 bags is stronger evidence than a
+  single-bag low-drift trial, since it's less likely all 8 got lucky at once.
+- **Practical mitigation**: run the apparent best trial 3-5 times on the
+  same bag set to estimate the noise. If the variance is large, you may
+  need to either (a) average objective over repeated runs (~3× more expensive)
+  or (b) accept that the optimizer is converging in noise.
+
+Suspected causes: ROS 2 messaging order in concurrent subscribers, thread
+scheduling in icp_odometry's PCL ops, ICP iteration count from inlier
+floating-point ties. Hard to make fully deterministic without rebuilding
+RTAB-Map with deterministic flags.
+
 ## Recipes
 
 ### Resume an existing study
