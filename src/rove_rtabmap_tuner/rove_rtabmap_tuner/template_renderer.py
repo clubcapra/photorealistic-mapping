@@ -35,6 +35,10 @@ DEFAULTS: dict[str, str] = {
     'icp_max_correspondence_distance': '0.1',
     'icp_strategy': '1',
     'icp_outlier_ratio': '0.65',
+    # Force3DoF/Force4DoF default off — opt-in via `--set icp_force_3dof=true`
+    # for ground robots, or by adding to SEARCH_SPACE for auto-tuning.
+    'icp_force_3dof': 'false',
+    'icp_force_4dof': 'false',
 
     # ---- ICP odometry ------------------------------------------------------
     'odom_scan_keyframe_thr': '0.4',

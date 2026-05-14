@@ -125,10 +125,32 @@ ros2 run rove_rtabmap_tuner rank_trials /path/to/study \
 | Changed `SEARCH_SPACE` (added a param) | new study (Optuna handles missing-param priors poorly) |
 | Different bag set | new study (per-bag user_attrs are positional, comparison invalid) |
 
-## Open candidate improvements (not yet implemented)
+## Newly-overridable params (not auto-tuned, opt-in via `--set`)
 
-1. **`Icp/Force3DoF` as a tunable**: For ground robots, restricting motion to (x, y, yaw) eliminates Z/roll/pitch drift that doesn't reflect real motion. Could improve drift_per_path by another 20-30%.
-2. **`OdomF2M/BundleAdjustment` as a tunable categorical**: Enabling could improve accuracy at significant CPU cost. Worth testing.
-3. **Custom `RGBD/OptimizeStrategy` (graph backend choice)**: TORO vs g2o vs GTSAM vs Ceres have different convergence properties. Categorical, 4 choices.
-4. **GPS-based ATE metric**: The current "drove a loop, returned to start" framing is structurally limited (no ground truth at intermediate poses). A GPS-tagged ATE per-pose unlocks proper SLAM-quality scoring.
-5. **Per-bag tuning** (ensemble): rather than a single param set, learn per-bag classifiers that select params from a Pareto front. Significantly more complex but would push past the "no universal champion" wall.
+These have placeholders in the template + defaults in `template_renderer.py` but are **not** in `SEARCH_SPACE`, so the optimizer won't auto-explore them on existing studies. Test manually first, then graduate to SEARCH_SPACE in a fresh study.
+
+- `icp_force_3dof` (default `false`): restrict ICP to (x, y, yaw). For ground robots, eliminates Z/roll/pitch noise.
+- `icp_force_4dof` (default `false`): restrict to (x, y, z, yaw). Keep height but lock roll/pitch — useful on inclines.
+
+Existing-already-overridable but-not-auto-tuned:
+- `odomf2m_bundle_adjustment` (`'true'`/`'false'`): enables sliding-window BA in ICP odometry. ~2-3× CPU cost, may improve accuracy.
+- `reg_strategy` (`'0'`/`'1'`/`'2'`): registration strategy at map level. We keep `'1'` (ICP) for lidar-only setups.
+
+Test pattern: render with the candidate enabled, run a single trial against a couple bags, compare drift vs the trial-#367 baseline before committing to a tuning study with the param added to SEARCH_SPACE.
+
+```bash
+ros2 run rove_rtabmap_tuner run_trial \
+  --bag /home/iliana/bags/moving_long_bag1 \
+  --bag /home/iliana/bags/moving_extra_long_bag1 \
+  --output-root /tmp/force3dof_smoke --trial-id force_3dof \
+  -s icp_force_3dof=true [other -s from #367's params] \
+  --expected-update-rate 50.0 --max-bag-duration-s 300 \
+  --bag-play-arg=--topics --bag-play-arg=/livox/lidar --bag-play-arg=/imu/data \
+  --bag-play-arg=/tf --bag-play-arg=/tf_static
+```
+
+## Open candidate improvements (still not implemented)
+
+1. **Custom `RGBD/OptimizeStrategy` (graph backend choice)**: TORO vs g2o vs GTSAM vs Ceres. Categorical, 4 choices.
+2. **GPS-based ATE metric**: The current "drove a loop, returned to start" framing is structurally limited (no ground truth at intermediate poses). A GPS-tagged ATE per-pose unlocks proper SLAM-quality scoring.
+3. **Per-bag tuning** (ensemble): rather than a single param set, learn per-bag classifiers that select params from a Pareto front. Significantly more complex but would push past the "no universal champion" wall.

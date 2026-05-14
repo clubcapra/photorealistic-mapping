@@ -77,6 +77,13 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         'Icp/MaxTranslation': '${icp_max_translation}',
         'Icp/MaxCorrespondenceDistance': '${icp_max_correspondence_distance}',
         'Icp/Strategy': '${icp_strategy}',
+        # Force3DoF: restrict ICP to in-plane motion (x, y, yaw). Useful for
+        # ground robots — eliminates Z/roll/pitch drift that doesn't reflect
+        # real motion and can pollute the trajectory estimate. Default false.
+        'Icp/Force3DoF': '${icp_force_3dof}',
+        # Force4DoF: restrict to (x, y, z, yaw) — keep height but lock roll
+        # and pitch. Useful for robots driving over moderate inclines.
+        'Icp/Force4DoF': '${icp_force_4dof}',
         'Icp/OutlierRatio': '${icp_outlier_ratio}',
     }
 
