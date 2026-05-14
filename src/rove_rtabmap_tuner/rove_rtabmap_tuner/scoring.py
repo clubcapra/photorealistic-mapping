@@ -40,7 +40,7 @@ from typing import Callable, Optional
 # trajectory is too degenerate to score meaningfully — typically a sign that
 # RTAB-Map rejected nearly every scan due to bad params. Treated as failure.
 MIN_N_POSES: int = 5
-MIN_PATH_LENGTH_M: float = 1.0
+MIN_PATH_LENGTH_M: float = 0.3
 
 
 @dataclass
