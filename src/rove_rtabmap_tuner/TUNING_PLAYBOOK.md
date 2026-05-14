@@ -130,6 +130,25 @@ ros2 run rove_rtabmap_tuner optimize \
   --max-bag-duration-s 300
 ```
 
+### Defeat non-determinism with `--n-reps-per-trial`
+
+If you've confirmed (per `experiments/nondeterminism_3rep.md`) that the bag
+set is noisy enough that single-run scores are unreliable, run each Optuna
+trial multiple times and take the median:
+
+```bash
+ros2 run rove_rtabmap_tuner optimize \
+  --bag <bag1> [--bag <bag2> ...] \
+  --output-root /path/to/study \
+  --study-name <name> \
+  --metric q75_drift_per_path \
+  --n-trials 60 --n-jobs 4 --n-reps-per-trial 3
+```
+
+Wall time = N×N×(bag-time) for the run; e.g. 60 trials × 3 reps × 9 bags at
+~80s/bag with 4 parallel = ~9 hours. Significant cost but much more reliable
+than the same total compute spread across more single-run trials.
+
 `load_if_exists=True` is implicit. Stale `RUNNING` trials from previous kills auto-fail at startup. Incomplete trial directories get cleaned up.
 
 ### Force-kill safely
