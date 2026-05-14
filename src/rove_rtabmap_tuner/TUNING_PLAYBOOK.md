@@ -1,0 +1,134 @@
+# Tuning playbook for rove_rtabmap_tuner
+
+A working set of recipes and findings from the capra_full_v1 study (~700 trials).
+
+## TL;DR — recommended deployment params
+
+From the existing study, **trial #367** is the most robust set: drift/path ≤ 0.16 on every scored bag, with loop closures firing across the board. Better than the lowest-median trial because it has no catastrophic-on-one-bag tradeoff.
+
+```bash
+ros2 run rove_rtabmap_tuner run_trial \
+  --bag /path/to/bag --output-root ./verify --trial-id deploy \
+  --expected-update-rate 50.0 --max-bag-duration-s 300 \
+  --bag-play-arg=--topics --bag-play-arg=/livox/lidar --bag-play-arg=/imu/data \
+  --bag-play-arg=/tf --bag-play-arg=/tf_static \
+  -s icp_voxel_size=0.054 \
+  -s icp_max_correspondence_distance=0.0935 \
+  -s icp_iterations=15 \
+  -s icp_outlier_ratio=0.164 \
+  -s icp_max_translation=0.345 \
+  -s icp_point_to_plane_k=27 \
+  -s icp_strategy=1 \
+  -s icp_odom_correspondence_ratio=0.146 \
+  -s icp_map_correspondence_ratio=0.119 \
+  -s odom_scan_keyframe_thr=0.836 \
+  -s odomf2m_scan_max_size=20541 \
+  -s odomf2m_scan_subtract_radius=0.0554 \
+  -s rgbd_linear_update=0.288 \
+  -s rgbd_angular_update=0.077 \
+  -s rgbd_proximity_path_max_neighbors=3 \
+  -s mem_stm_size=12
+```
+
+Per-bag performance on this set:
+
+| bag | drift_m | drift/path | loops |
+|---|---|---|---|
+| moving_extra_long_bag1 | 1.50 | 5.9% | 42 |
+| moving_extra_long_bag2 | 0.28 | 4.0% | 10 |
+| moving_long_bag1 | 0.09 | 4.6% | 9 |
+| moving_long_bag2 | 0.03 | 0.2% | 28 |
+| moving_long_bag3 | 0.33 | 3.3% | 10 |
+| moving_long_bag4 | 0.12 | 0.6% | 20 |
+| moving_short_bag1 | 0.14 | 5.4% | 2 |
+| turning_bag1 | 0.17 | 16.0% | 1 |
+
+## Key findings from the study
+
+### 1. There is no universal champion
+
+12 distinct trials win for 13 bags — different param regimes are best for different bags. This is *why* the optimizer plateaus. The current optimum (max=0.16) represents the best compromise, not a hard limit.
+
+### 2. Blocker bags (worst-drift bag in most trials)
+
+```
+moving_short_bag2  → worst in 24% of trials
+moving_long_bag1   → worst in 23%
+moving_extra_long_bag3 → 11%
+turning_bag2       → 7%
+```
+
+These bags' drift swings hugely with params (best ever 0.0005, worst 0.99). Removing them from the bag list lowers the max-aggregation floor immediately.
+
+### 3. Every bag is solvable individually
+
+Every bag has been driven to drift ≤ 0.012 by *some* trial. No bag is structurally impossible. The optimizer just can't find params that work on all of them simultaneously.
+
+### 4. Aggregator choice changes which trial wins
+
+| aggregator | best trial | what it rewards |
+|---|---|---|
+| median | #379 (0.022 median, **0.41 max**) | typical-bag performance — hides outliers |
+| q75 | #348 (0.042 q75) | typical + worst-quartile awareness |
+| q90 | #367 (0.089 q90) | strong outlier penalty without single-bag domination |
+| max | #360 (0.117 max, only 5 bags) | strict robustness — but fewer-bag trials win by luck |
+
+**For loss-of-tracking criterion: use q75 or q90.** Max is too sensitive to a single outlier bag. Median hides catastrophes.
+
+## Recipes
+
+### Resume an existing study
+
+```bash
+ros2 run rove_rtabmap_tuner optimize \
+  --bag <bag1> [--bag <bag2> ...] \
+  --output-root /path/to/study \
+  --study-name <existing_study_name> \
+  --metric q90_drift_per_path \   # or whichever aggregation
+  --n-trials 100 --n-jobs 6 \
+  --max-bag-duration-s 300
+```
+
+`load_if_exists=True` is implicit. Stale `RUNNING` trials from previous kills auto-fail at startup. Incomplete trial directories get cleaned up.
+
+### Force-kill safely
+
+Just `Ctrl-C` or `kill <pid>`. The signal handler:
+1. SIGINTs every subprocess group it spawned (rtabmap, icp_odometry, ros2 bag play, etc.).
+2. Escalates to SIGTERM then SIGKILL if a process doesn't exit cleanly.
+3. Exits with conventional signal code.
+
+Next startup auto-self-heals: orphan `RUNNING` trials → `FAIL`, incomplete trial dirs deleted.
+
+### Find the most robust trial in a study
+
+```bash
+ros2 run rove_rtabmap_tuner analyze_per_bag /path/to/study
+```
+
+Top-5 by max, q75, q90, median against the same data — pick whichever matches your robustness preference.
+
+### Rerank an existing multi-objective study by a different metric
+
+```bash
+ros2 run rove_rtabmap_tuner rank_trials /path/to/study \
+  --metric mean_icp_ratio --top 10
+```
+
+## When to start a fresh study vs resume
+
+| situation | move |
+|---|---|
+| Same metric, more trials | resume (`--study-name X` same as before) |
+| New metric with different aggregation | new study (Optuna won't mix directions) |
+| Changed `SEARCH_SPACE` bounds (narrowed) | new study or accept stale priors with out-of-bound values |
+| Changed `SEARCH_SPACE` (added a param) | new study (Optuna handles missing-param priors poorly) |
+| Different bag set | new study (per-bag user_attrs are positional, comparison invalid) |
+
+## Open candidate improvements (not yet implemented)
+
+1. **`Icp/Force3DoF` as a tunable**: For ground robots, restricting motion to (x, y, yaw) eliminates Z/roll/pitch drift that doesn't reflect real motion. Could improve drift_per_path by another 20-30%.
+2. **`OdomF2M/BundleAdjustment` as a tunable categorical**: Enabling could improve accuracy at significant CPU cost. Worth testing.
+3. **Custom `RGBD/OptimizeStrategy` (graph backend choice)**: TORO vs g2o vs GTSAM vs Ceres have different convergence properties. Categorical, 4 choices.
+4. **GPS-based ATE metric**: The current "drove a loop, returned to start" framing is structurally limited (no ground truth at intermediate poses). A GPS-tagged ATE per-pose unlocks proper SLAM-quality scoring.
+5. **Per-bag tuning** (ensemble): rather than a single param set, learn per-bag classifiers that select params from a Pareto front. Significantly more complex but would push past the "no universal champion" wall.
