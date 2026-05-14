@@ -107,10 +107,21 @@ full `--set` list.
 
 ## Suggested next steps for the human
 
-1. **Validate trial #367 with `--n-reps-per-trial 5`** on the full bag set
+1. **Validate `capra_focus_v2` trial #4** (`experiments/focused_run_partial_results.md`)
+   with `--n-reps-per-trial 3` on the full 9-bag set. Partial single-rep
+   data showed 5 of 6 bags at drift/path ≤ 8.2%, suggesting a real
+   refinement over trial #367 — but needs the full-bag verification before
+   deploying.
+2. **Validate trial #367 with `--n-reps-per-trial 5`** on the full bag set
    to get a real confidence interval. ~30-40 min wall.
-2. **Resume with q75 aggregator + n_reps=3** for ~100 more trials. Now
-   you're optimizing in low-noise mode against a robustness-friendly
-   metric. Should give honest improvements over #367 if any exist.
-3. **If still stuck**: ground-truth ATE (GPS / fiducials) is the structural
+3. **Resume focused tuning** with `--search-space near_367 --metric q75_drift_per_path --n-reps-per-trial 3`
+   for ~100 more trials. Now optimizing in low-noise mode against a
+   robustness-friendly metric inside the known-good region. Should give
+   honest improvements over #367 if any exist.
+4. **Run from outside this terminal** (`nohup`, `tmux`, or a different
+   user shell) — twice during the autonomous block, background bash tasks
+   got SIGINTed at the ~40-minute mark by an unknown source. Detaching
+   from the session should avoid this. The new shutdown handler caught
+   the SIGINT cleanly each time, so DB state stayed consistent.
+5. **If still stuck**: ground-truth ATE (GPS / fiducials) is the structural
    unblock. Or per-bag-type tuning (the cluster pattern in the playbook).

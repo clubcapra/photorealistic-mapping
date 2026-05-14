@@ -4,7 +4,18 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-From the existing study, **trial #367** is the most robust set: drift/path ≤ 0.16 on every scored bag, with loop closures firing across the board. Better than the lowest-median trial because it has no catastrophic-on-one-bag tradeoff.
+From `capra_full_v1` (700-trial study), **trial #367** is the established
+robust baseline: drift/path ≤ 0.16 on every scored bag with loop closures
+firing across the board.
+
+**Candidate refinement (partial validation):** `capra_focus_v2` trial #4
+hit drift/path **0.023-0.082 on 5 of 6 bags** before the run was killed
+(see `experiments/focused_run_partial_results.md`). Looks like a real
+improvement over #367 but the rep was incomplete. **Validate with
+`--n-reps-per-trial 3` on the full 9-bag set before deploying.** Params
+listed in the experiments file.
+
+Below is the established #367 set:
 
 ```bash
 ros2 run rove_rtabmap_tuner run_trial \
