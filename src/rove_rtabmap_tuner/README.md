@@ -2,17 +2,19 @@
 
 Automated parameter tuning for RTAB-Map: replay one or more rosbags, run RTAB-Map with different parameter sets, score each map by start-to-end pose drift, and use Optuna to search for the best parameters.
 
+**For findings, deployment-ready params, and tuning recipes**, see [`TUNING_PLAYBOOK.md`](TUNING_PLAYBOOK.md).
+
 ## Pipeline
 
 ```
    bag(s)
      │
      ▼
-┌────────────────┐    ┌──────────────────┐    ┌──────────────┐    ┌──────────────┐
-│ render_template│ →  │   run_trial      │ →  │ score_trial  │ →  │   optimize   │
-│  (per trial)   │    │ (launch + bag    │    │ (drift from  │    │ (TPE drives  │
-│                │    │  play + capture) │    │  rtabmap.db) │    │  run_trial)  │
-└────────────────┘    └──────────────────┘    └──────────────┘    └──────────────┘
+┌────────────────┐    ┌──────────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────────┐
+│ render_template│ →  │   run_trial      │ →  │ score_trial  │ →  │   optimize   │ →  │ analyze_per_bag  │
+│  (per trial)   │    │ (launch + bag    │    │ (drift from  │    │ (TPE drives  │    │ (post-hoc        │
+│                │    │  play + capture) │    │  rtabmap.db) │    │  run_trial)  │    │  diagnostics)    │
+└────────────────┘    └──────────────────┘    └──────────────┘    └──────────────┘    └──────────────────┘
 ```
 
 ## Setup
@@ -33,7 +35,16 @@ source install/setup.zsh
 
 ## CLIs
 
-All four are exposed via `ros2 run rove_rtabmap_tuner <cmd>`.
+All exposed via `ros2 run rove_rtabmap_tuner <cmd>`. Quick reference:
+
+| CLI | Purpose |
+|---|---|
+| `render_template` | Materialize the tunable launch template into a concrete `.launch.py` |
+| `run_trial` | One param set vs N bags → per-bag `rtabmap.db` + `metrics.json` |
+| `score_trial` | Re-score an existing trial dir (recompute drift) |
+| `optimize` | Optuna-driven search over params |
+| `rank_trials` | Post-hoc reranking by any registered metric |
+| `analyze_per_bag` | Worst-bag / no-universal-champion diagnostics on a study dir |
 
 ### `render_template`
 
