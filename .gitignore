@@ -34,4 +34,4 @@ CMakeLists.txt.user
 # Catkin custom files
 CATKIN_IGNORE
 
-__pycache__
+__pycache__.claude/
