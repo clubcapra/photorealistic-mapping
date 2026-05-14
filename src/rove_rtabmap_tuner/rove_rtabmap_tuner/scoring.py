@@ -31,7 +31,7 @@ import math
 import re
 import sqlite3
 import subprocess
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Callable, Optional
 
