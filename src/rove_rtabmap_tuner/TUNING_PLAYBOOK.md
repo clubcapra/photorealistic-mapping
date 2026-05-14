@@ -64,6 +64,24 @@ These bags' drift swings hugely with params (best ever 0.0005, worst 0.99). Remo
 
 Every bag has been driven to drift ≤ 0.012 by *some* trial. No bag is structurally impossible. The optimizer just can't find params that work on all of them simultaneously.
 
+### 3a. Per-motion-pattern parameter clusters
+
+Looking at the params that *win* on each bag type reveals a cluster pattern:
+
+| motion type | voxel_size median | max_correspondence_distance median | outlier_ratio | mem_stm_size |
+|---|---|---|---|---|
+| short bags | 0.058 | 0.44 | 0.37 | 7.5 |
+| long bags | **0.082** | **0.50** | 0.50 | 8.5 |
+| extra-long bags | 0.057 | **0.16** | 0.51 | 12.0 |
+| turning bags | 0.077 | 0.61 | **0.72** | 8.5 |
+
+Observations:
+- Long bags want **3× larger** correspondence distance than extra-long bags (0.50 vs 0.16). Different motion patterns demand different ICP search radii.
+- Turning bags want **much stricter outlier rejection** (0.72 vs ~0.50 for moving bags). Pure rotation puts correspondences at varied distances from the axis — strict rejection drops bad pairs.
+- Extra-long bags want **larger short-term memory** (12 vs 8.5). Probably because longer trajectories accumulate more revisit candidates that benefit from staying in WM.
+
+This cluster pattern suggests **per-bag-type tuning** could improve over a single universal param set. Practical move: if you can classify bags by motion pattern at runtime (e.g., from `nav_msgs/Odometry` velocity profile), select params accordingly.
+
 ### 4. Aggregator choice changes which trial wins
 
 | aggregator | best trial | what it rewards |
