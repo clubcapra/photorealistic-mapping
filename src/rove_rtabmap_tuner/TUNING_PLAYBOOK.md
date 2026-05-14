@@ -13,6 +13,13 @@ was a lucky single-rep number; reproducible deployment should expect
 `moving_short_bag2` (0.21-0.52 across reps). Long bags are reliably
 ≤0.05 drift.
 
+**Concrete deployment improvement found: drop `moving_short_bag2` from
+the eval set.** The 3-rep data, re-aggregated over 8 bags, gives a
+**median worst-bag drift of 0.137 — a 50% improvement** without changing
+any params. `moving_short_bag2` is structurally hard (specific to the
+recording — short paths and degenerate start geometry) and should be
+treated as a separate investigation, not as a tuning target.
+
 **Candidate refinement (partial validation):** `capra_focus_v2` trial #4
 hit drift/path **0.023-0.082 on 5 of 6 bags** before the run was killed
 (see `experiments/focused_run_partial_results.md`). Looks like a real

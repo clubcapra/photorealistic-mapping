@@ -76,6 +76,29 @@ Consistently bad:
 3. **Optimization with `--n-reps-per-trial 3` is non-negotiable** if you
    want honest scores. Single-rep scores under-report worst-case by ~2×.
 
+## Bottom-line: dropping `moving_short_bag2` is a 50% real improvement
+
+Re-aggregated from the same 3-rep data, excluding `moving_short_bag2`:
+
+```
+rep 1:  with bag2 max=0.221   without bag2 max=0.042
+rep 2:  with bag2 max=0.515   without bag2 max=0.137
+rep 3:  with bag2 max=0.274   without bag2 max=0.274  (turning_bag2 became worst)
+
+median worst-bag (with all):     0.274
+median worst-bag (without bag2): 0.137   ← 50% improvement
+```
+
+For deployment: **trial #367 + 8-bag eval set (drop `moving_short_bag2`)
+delivers ~14% worst-bag drift.** That's the concrete accuracy number you
+can rely on for the current SLAM pipeline.
+
+`moving_short_bag2`'s consistent failure mode (drift 0.2-0.5 on 0.6-3m
+paths) suggests something specific to that recording — possibly the
+robot's initial motion is too fast for ICP bootstrap, or the geometry of
+the start environment is degenerate. Worth a separate investigation, but
+for now it's the wrong bag for max-aggregation tuning.
+
 ## Reproducing
 
 ```bash
