@@ -4,30 +4,77 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-From `capra_full_v1` (700-trial study), **trial #367** is the established
-robust baseline. **3-rep validation result** (see
-`experiments/trial_367_validation_3rep.md`): **median worst-bag drift ≈
-0.27** across the 9 certain-loop bags. The previously claimed "max=0.16"
-was a lucky single-rep number; reproducible deployment should expect
-0.25-0.30 worst-bag drift, with the bottleneck consistently being
-`moving_short_bag2` (0.21-0.52 across reps). Long bags are reliably
-≤0.05 drift.
+**Updated 2026-05-15 — overnight `capra_focused_v3` study + 5-rep validations.**
 
-**Concrete deployment improvement found: drop `moving_short_bag2` from
-the eval set.** The 3-rep data, re-aggregated over 8 bags, gives a
-**median worst-bag drift of 0.137 — a 50% improvement** without changing
-any params. `moving_short_bag2` is structurally hard (specific to the
-recording — short paths and degenerate start geometry) and should be
-treated as a separate investigation, not as a tuning target.
+| candidate | 5-rep median worst-bag (7 bags) | 5-rep median q75 | source |
+|---|---|---|---|
+| **`capra_focused_v3` trial 10** ← **NEW DEPLOYMENT WINNER** | **0.180** | **0.130** | `experiments/capra_focused_v3_winner_5rep.md` |
+| `#367` (historical baseline) | 0.221 | 0.148 | `experiments/baseline_367_7bag_5rep.md` |
+| `capra_max_v1` trial 8 (max-metric optim winner) | not validated | n/a | run-time 3-rep median = 0.253, not competitive |
 
-**Candidate refinement (partial validation):** `capra_focus_v2` trial #4
-hit drift/path **0.023-0.082 on 5 of 6 bags** before the run was killed
-(see `experiments/focused_run_partial_results.md`). Looks like a real
-improvement over #367 but the rep was incomplete. **Validate with
-`--n-reps-per-trial 3` on the full 9-bag set before deploying.** Params
-listed in the experiments file.
+**Headline:** `capra_focused_v3` trial 10 — found by 24-trial TPE on
+`near_367` search space optimizing `q75_drift_per_path` with `n_reps=3` —
+beats #367 on both **q75** and **max-aggregation** with apples-to-apples
+5-rep validation on the same 7-bag set. ~18% lower worst-bag drift, ~12%
+lower q75. Same `moving_short_bag2` and `moving_extra_long_bag4` exclusions.
 
-Below is the established #367 set:
+For deployment, use trial 10's params (block below). #367 is kept as the
+historical baseline for reference. The `capra_max_v1` study (optimizing
+max-aggregation directly) failed to find an improvement over #367 in 10
+trials; max metric is too noisy without many more reps per trial.
+
+> See also `experiments/moving_extra_long_bag4_failure_cause.md` —
+> bag4's "no trajectory" failure mode is structural (missing
+> `/tf`/`/tf_static` topics + 232 s playback > the 180 s cap). Exclusion
+> from eval is correct, not a tuning failure.
+
+### Trial 10 deployment block (NEW recommendation)
+
+```bash
+ros2 run rove_rtabmap_tuner run_trial \
+  --bag /path/to/bag --output-root ./verify --trial-id deploy \
+  --expected-update-rate 50.0 --max-bag-duration-s 300 \
+  --bag-play-arg=--topics --bag-play-arg=/livox/lidar --bag-play-arg=/imu/data \
+  --bag-play-arg=/tf --bag-play-arg=/tf_static \
+  -s icp_iterations=15 \
+  -s icp_map_correspondence_ratio=0.08135050897706239 \
+  -s icp_max_correspondence_distance=0.14374396367206072 \
+  -s icp_max_translation=0.3431394208139219 \
+  -s icp_odom_correspondence_ratio=0.10659094630484416 \
+  -s icp_outlier_ratio=0.2710250798581572 \
+  -s icp_point_to_plane_k=23 \
+  -s icp_strategy=1 \
+  -s icp_voxel_size=0.032556530204107516 \
+  -s mem_stm_size=12 \
+  -s odom_scan_keyframe_thr=0.6595928997078367 \
+  -s odomf2m_scan_max_size=11831 \
+  -s odomf2m_scan_subtract_radius=0.08068525784128154 \
+  -s rgbd_angular_update=0.05667141599421128 \
+  -s rgbd_linear_update=0.17581379840891886 \
+  -s rgbd_proximity_path_max_neighbors=2
+```
+
+Notable departure from #367: `icp_voxel_size` ≈ 0.033 (~60% of #367's 0.054);
+`icp_max_correspondence_distance` ≈ 0.144 (~1.5× #367's 0.0935);
+`icp_outlier_ratio` ≈ 0.27 (vs 0.16); `odomf2m_scan_max_size` ≈ 11831 (vs
+20541, much smaller scan map). Trial 10 prefers a finer voxel grid and a
+larger correspondence search distance — a slightly different ICP operating
+point that turns out to be better on this bag set.
+
+---
+
+### Historical: `#367` (the old recommended baseline)
+
+From `capra_full_v1` (700-trial study), **trial #367** was the previous
+recommended baseline. Earlier `experiments/trial_367_validation_3rep.md`
+reported **3-rep** median worst-bag of 0.27 (9 bags) / 0.137 (8 bags). The
+5-rep validation in `baseline_367_7bag_5rep.md` gives a tighter and slightly
+worse number: median worst-bag = 0.221 on 7 bags. The 0.137 was lucky.
+
+Long bags reliably ≤0.05 drift under #367; the per-rep variance comes mostly
+from `moving_long_bag1`, `turning_bag1`, and `turning_bag2`.
+
+#367's full param block (still useful as a comparison point):
 
 ```bash
 ros2 run rove_rtabmap_tuner run_trial \
