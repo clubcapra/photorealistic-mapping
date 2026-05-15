@@ -4,14 +4,24 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-**Updated 2026-05-15 — overnight `capra_focused_v3` study + 5-rep validations.**
+**Updated 2026-05-15 — overnight `capra_focused_v3` + day-2 follow-up experiments.**
 
-| candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source |
+| candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source / status |
 |---|---|---|---|---|
-| **`capra_focused_v3` trial 22** ← **NEW DEPLOYMENT WINNER** | **0.177** | **0.087** | **0.258** | `experiments/trial_22_5rep.md` |
+| **`capra_focused_v3` trial 22** ← **DEPLOYMENT WINNER** | **0.177** | **0.087** | **0.258** | `experiments/trial_22_5rep.md` |
 | `capra_focused_v3` trial 10 | 0.180 | 0.130 | 0.289 | `experiments/capra_focused_v3_winner_5rep.md` |
+| `study_full` trial 349 (long-bag specialist) | 0.233 | 0.099 | 0.414 | `experiments/study_full_trial_349_5rep.md` (5-bag median max=0.056, on-par with original) |
 | `#367` (historical baseline) | 0.221 | 0.148 | 0.354 | `experiments/baseline_367_7bag_5rep.md` |
-| `capra_max_v1` trial 8 (max-metric optim) | not validated | n/a | n/a | in-optim 3-rep median = 0.253, not competitive |
+| `capra_wide_v1` trial 13 (wide-search) | 0.244 | 0.190 | 0.382 | `experiments/capra_wide_v1_t13_5rep.md` (negative) |
+| `capra_turning_v1` t4 (turning-only optim) | 0.257 | 0.096 | 0.432 | `experiments/capra_turning_v1_t4_5rep.md` (negative) |
+| `capra_max_v1` trial 8 (max-metric optim) | not validated | n/a | n/a | in-optim 3-rep median = 0.253, run-time evidence enough — not competitive |
+
+Day-2 follow-up experiments (all negative — trial 22 unchanged as winner):
+- **Wide-search**: 17-trial wide-space study. Best wide trial 13 has worst-bag 0.244, 38% worse than trial 22. `near_367` basin is genuinely good.
+- **Turning-only optim**: 7-trial study with `turning_bag1+2` only. Winner over-fit (median worst-bag 0.257 on full set).
+- **`icp_force_3dof=true`** smoke: turning bags 50-80% worse. See `experiments/icp_force_dof_smokes.md`.
+- **`icp_force_4dof=true`** smoke: turning bags 40-250% worse. Same writeup.
+- **`study_full` trial 349 cross-validated**: long-bag specialist (excellent on 5 long bags) but turning bags drift 0.04-0.41.
 
 **Headline:** Trial 22 is the new deployment winner. Two near-tied q75 optima
 came out of the `capra_focused_v3` 24-trial study (10 → 0.0975, 22 → 0.0983
