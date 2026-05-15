@@ -6,29 +6,66 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 **Updated 2026-05-15 — overnight `capra_focused_v3` study + 5-rep validations.**
 
-| candidate | 5-rep median worst-bag (7 bags) | 5-rep median q75 | source |
-|---|---|---|---|
-| **`capra_focused_v3` trial 10** ← **NEW DEPLOYMENT WINNER** | **0.180** | **0.130** | `experiments/capra_focused_v3_winner_5rep.md` |
-| `#367` (historical baseline) | 0.221 | 0.148 | `experiments/baseline_367_7bag_5rep.md` |
-| `capra_max_v1` trial 8 (max-metric optim winner) | not validated | n/a | run-time 3-rep median = 0.253, not competitive |
+| candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source |
+|---|---|---|---|---|
+| **`capra_focused_v3` trial 22** ← **NEW DEPLOYMENT WINNER** | **0.177** | **0.087** | **0.258** | `experiments/trial_22_5rep.md` |
+| `capra_focused_v3` trial 10 | 0.180 | 0.130 | 0.289 | `experiments/capra_focused_v3_winner_5rep.md` |
+| `#367` (historical baseline) | 0.221 | 0.148 | 0.354 | `experiments/baseline_367_7bag_5rep.md` |
+| `capra_max_v1` trial 8 (max-metric optim) | not validated | n/a | n/a | in-optim 3-rep median = 0.253, not competitive |
 
-**Headline:** `capra_focused_v3` trial 10 — found by 24-trial TPE on
-`near_367` search space optimizing `q75_drift_per_path` with `n_reps=3` —
-beats #367 on both **q75** and **max-aggregation** with apples-to-apples
-5-rep validation on the same 7-bag set. ~18% lower worst-bag drift, ~12%
-lower q75. Same `moving_short_bag2` and `moving_extra_long_bag4` exclusions.
+**Headline:** Trial 22 is the new deployment winner. Two near-tied q75 optima
+came out of the `capra_focused_v3` 24-trial study (10 → 0.0975, 22 → 0.0983
+on in-optim n_reps=3). 5-rep validations on the same 7-bag set showed:
 
-For deployment, use trial 10's params (block below). #367 is kept as the
-historical baseline for reference. The `capra_max_v1` study (optimizing
-max-aggregation directly) failed to find an improvement over #367 in 10
-trials; max metric is too noisy without many more reps per trial.
+- Trial 22's 5-rep q75 is **0.087** — *lower than its in-optim score*. Trial 10's 5-rep q75 is 0.130 — *higher than its in-optim score* (i.e., trial 10 was a lucky in-optim sample, trial 22 was honest).
+- Trial 22 has a tighter worst-case ceiling (max 0.258 vs trial 10's 0.289 vs #367's 0.354).
+- Median worst-bag is essentially tied between trial 22 and trial 10 (0.177 vs 0.180).
+
+Use trial 22's params for deployment (block below). Trial 10 and #367 are
+both retained in the doc as historical reference points and Pareto-comparable
+candidates.
+
+The `capra_max_v1` study (optimizing max-aggregation directly, 10 trials)
+failed to find an improvement over #367 in this search space; max metric is
+too noisy without more reps per trial.
+
+### Trial 22 deployment block (NEW recommendation)
+
+```bash
+ros2 run rove_rtabmap_tuner run_trial \
+  --bag /path/to/bag --output-root ./verify --trial-id deploy \
+  --expected-update-rate 50.0 --max-bag-duration-s 300 \
+  --bag-play-arg=--topics --bag-play-arg=/livox/lidar --bag-play-arg=/imu/data \
+  --bag-play-arg=/tf --bag-play-arg=/tf_static \
+  -s icp_iterations=10 \
+  -s icp_map_correspondence_ratio=0.11487825221149986 \
+  -s icp_max_correspondence_distance=0.09407542611759338 \
+  -s icp_max_translation=0.39775933719319057 \
+  -s icp_odom_correspondence_ratio=0.15865897381314267 \
+  -s icp_outlier_ratio=0.12904362151613477 \
+  -s icp_point_to_plane_k=27 \
+  -s icp_strategy=1 \
+  -s icp_voxel_size=0.04377165263431872 \
+  -s mem_stm_size=10 \
+  -s odom_scan_keyframe_thr=0.7219043373627109 \
+  -s odomf2m_scan_max_size=14903 \
+  -s odomf2m_scan_subtract_radius=0.09963209781174709 \
+  -s rgbd_angular_update=0.06309961519303404 \
+  -s rgbd_linear_update=0.4199955937395548 \
+  -s rgbd_proximity_path_max_neighbors=4
+```
+
+Notable departures from trial 10: ~1.5× larger voxel (0.044), tighter ICP
+correspondence radius (0.094), stricter outlier rejection (0.13), and a much
+larger `rgbd_linear_update` (0.42 — fewer keyframes per metre). Trial 22
+keyframes less aggressively but matches ICP more precisely.
 
 > See also `experiments/moving_extra_long_bag4_failure_cause.md` —
 > bag4's "no trajectory" failure mode is structural (missing
 > `/tf`/`/tf_static` topics + 232 s playback > the 180 s cap). Exclusion
 > from eval is correct, not a tuning failure.
 
-### Trial 10 deployment block (NEW recommendation)
+### Trial 10 deployment block (PRIOR recommendation — superseded by trial 22 above)
 
 ```bash
 ros2 run rove_rtabmap_tuner run_trial \
