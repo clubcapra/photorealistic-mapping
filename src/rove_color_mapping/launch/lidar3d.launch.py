@@ -71,7 +71,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'frame_id': frame_id,
     'qos': LaunchConfiguration('qos'),
     'approx_sync': rgbd_image_used,
-    'wait_for_transform': 0.2,
+    'wait_for_transform': 0.5,
     # RTAB-Map's internal parameters are strings:
     'Icp/PointToPlane': 'true',
     'Icp/Iterations': '10',
@@ -121,11 +121,11 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     # 'Grid/Sensor': '1',
     'Grid/RangeMax': '10.0',
     'Grid/MaxGroundHeight': '0.25',
-    'Grid/MaxObstacleHeight': '1.8',
+    'Grid/MaxObstacleHeight': '0.80',
     'Grid/MinClusterSize': '30',
     'Grid/NormalsSegmentation': 'true',
     'Grid/FootprintHeight': '0.0',
-    'Grid/CellSize': '0.01',
+    'Grid/CellSize': '0.05',
   }
   
   arguments = []
@@ -187,7 +187,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
         parameters=[{
           'use_sim_time': use_sim_time,
           'fixed_frame_id': fixed_frame_id,
-          'wait_for_transform': 0.2,
+          'wait_for_transform': 0.5,
           'slerp': deskewing_slerp}],
         remappings=[
             ('input_cloud', lidar_topic)
