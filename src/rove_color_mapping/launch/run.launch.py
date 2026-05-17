@@ -9,7 +9,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    # ── Livox Mid360 ───────────────────────────────────────────────────────────────
+    # ── Livox Mid360 (lidar) ───────────────────────────────────────────────────────────────
     livox_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('livox_ros_driver2'),
@@ -19,7 +19,7 @@ def generate_launch_description():
         launch_arguments={'frame_id': 'livox_frame'}.items()
     )
 
-    # ── VectorNav VN300 ────────────────────────────────────────────────────────────
+    # ── VectorNav VN300 (IMU) ────────────────────────────────────────────────────────────
     vectornav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('vectornav_udp_bridge'),
@@ -27,7 +27,7 @@ def generate_launch_description():
         ))
     )
 
-    # ── Nav2 ───────────────────────────────────────────────────────────────────────
+    # ── Nav2 (costmaps)───────────────────────────────────────────────────────────────────────
     nav2_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('rove_color_mapping'),
@@ -59,7 +59,7 @@ def generate_launch_description():
         ))
     )
 
-    # ── RTABMap ────────────────────────────────────────────────────────────────────
+    # ── RTABMap (mapping) ────────────────────────────────────────────────────────────────────
     # Pass our specific topics and frame into it directly
     rtabmap_lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
@@ -68,10 +68,19 @@ def generate_launch_description():
         ))
     )
 
+    # ── Gscam2 (camera) ────────────────────────────────────────────────────────────────────
+    # Pass our specific topics and frame into it directly
+    gscam_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            get_package_share_directory('rove_color_mapping'),
+            'launch', 'gscam.launch.py'
+        ))
+    )
     return LaunchDescription([
         livox_launch,
         vectornav_launch,
         robot_state_publisher,
         rtabmap_lidar_launch,
+        gscam_launch,
         # nav2_launch
     ])

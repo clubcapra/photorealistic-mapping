@@ -70,7 +70,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'use_sim_time': use_sim_time,
     'frame_id': frame_id,
     'qos': LaunchConfiguration('qos'),
-    'approx_sync': rgbd_image_used,
+    'approx_sync': True,
     'wait_for_transform': 0.5,
     # RTAB-Map's internal parameters are strings:
     'Icp/PointToPlane': 'true',
@@ -103,7 +103,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
 
   rtabmap_parameters = {
     'subscribe_depth': False,
-    'subscribe_rgb': False,
+    'subscribe_rgbd': False,
+    'subscribe_rgb': True,
     'subscribe_odom_info': True,
     'subscribe_scan_cloud': True,
     'map_frame_id': 'new_map',
@@ -126,6 +127,17 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'Grid/NormalsSegmentation': 'true',
     'Grid/FootprintHeight': '0.0',
     'Grid/CellSize': '0.05',
+     # ── Camera projection onto pointcloud ──────────────────────
+    'Grid/Sensor': '1',              # 0=lidar only, 1=camera, 2=both — THIS is the main one
+    'Grid/DepthMax': '20.0',         # max range to colorize (meters)
+    'Grid/DepthMin': '0.1',
+    # ── Assembled colored cloud ────────────────────────────────
+    'cloud_output_voxel_size': '0.01',
+    'RGBD/ProximityBySpace': 'true',
+    # ── Make sure RGB is used for map coloring ─────────────────
+    'Mem/ImagePreDecimation': '1',   # no downscaling before storage
+    'Mem/ImagePostDecimation': '1',  # no downscaling after storage
+    'Mem/SaveDepth16Format': 'false',
   }
   
   arguments = []
@@ -157,7 +169,11 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
       parameters=[shared_parameters, rtabmap_parameters, 
                   {'subscribe_rgbd': rgbd_image_used, 
                    'rgbd_cameras': rgbd_cameras}],
-      remappings=remappings + [('scan_cloud', lidar_topic_deskewed)],
+      remappings=remappings + [
+                ('scan_cloud', lidar_topic_deskewed),
+                ('rgb/image',    '/front_camera/image_raw'),      # ← add
+                ('rgb/camera_info', '/front_camera/camera_info'), # ← add
+        ],
       arguments=arguments), 
   
     Node(
