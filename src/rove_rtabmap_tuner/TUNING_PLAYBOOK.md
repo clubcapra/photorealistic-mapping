@@ -8,13 +8,21 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 | candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source / status |
 |---|---|---|---|---|
-| **`capra_focused_v3` trial 22** ← **DEPLOYMENT WINNER** | **0.177** | **0.087** | **0.258** | `experiments/trial_22_5rep.md` |
+| **`capra_focused_v3` trial 22** ← **DEPLOYMENT WINNER** (default — robust) | **0.177** | 0.087 | **0.258** | `experiments/trial_22_5rep.md` |
+| **`capra_near_22_v1` trial 18** (long-bag specialist) | 0.207 | **0.078** | 0.331 | `experiments/near_22_t18_5rep.md` (new — Pareto alt to trial 22) |
 | `capra_focused_v3` trial 10 | 0.180 | 0.130 | 0.289 | `experiments/capra_focused_v3_winner_5rep.md` |
-| `study_full` trial 349 (long-bag specialist) | 0.233 | 0.099 | 0.414 | `experiments/study_full_trial_349_5rep.md` (5-bag median max=0.056, on-par with original) |
+| `study_full` trial 349 (long-bag specialist v2) | 0.233 | 0.099 | 0.414 | `experiments/study_full_trial_349_5rep.md` (5-bag median max=0.056, on-par with original) |
 | `#367` (historical baseline) | 0.221 | 0.148 | 0.354 | `experiments/baseline_367_7bag_5rep.md` |
 | `capra_wide_v1` trial 13 (wide-search) | 0.244 | 0.190 | 0.382 | `experiments/capra_wide_v1_t13_5rep.md` (negative) |
 | `capra_turning_v1` t4 (turning-only optim) | 0.257 | 0.096 | 0.432 | `experiments/capra_turning_v1_t4_5rep.md` (negative) |
 | `capra_max_v1` trial 8 (max-metric optim) | not validated | n/a | n/a | in-optim 3-rep median = 0.253, run-time evidence enough — not competitive |
+
+**Pareto note (trial 18 vs trial 22)**: trial 18 wins decisively on long
+bags (median drift halved on `moving_long_bag1`, `moving_long_bag3`, and
+`moving_extra_long_bag1` — see writeup). Trial 22 is more robust on
+turning bags. Use trial 22 by default, trial 18 if the deployment workload
+is predominantly forward motion. Both came from `near_22` neighborhood,
+just different points on the q75↔max Pareto front.
 
 Day-2 follow-up experiments (all negative — trial 22 unchanged as winner):
 - **Wide-search**: 17-trial wide-space study. Best wide trial 13 has worst-bag 0.244, 38% worse than trial 22. `near_367` basin is genuinely good.
