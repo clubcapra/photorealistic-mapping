@@ -31,6 +31,22 @@ Day-2 follow-up experiments (all negative — trial 22 unchanged as winner):
 - **`icp_force_4dof=true`** smoke: turning bags 40-250% worse. Same writeup.
 - **`study_full` trial 349 cross-validated**: long-bag specialist (excellent on 5 long bags) but turning bags drift 0.04-0.41.
 
+Day-4 follow-up experiments (all negative — confirming a methodology issue):
+- **MO NSGA-II (q75 + max), 23 trials**: best Pareto trial (#9) had in-optim q75=0.076 max=0.102 but 5-rep showed q75=0.128 max=0.384 — **lucky in-optim sample**. See `experiments/capra_mo_v1_t9_5rep.md`.
+- **q90 single-obj, 8 trials**: best trial 6 in-optim q90=0.138 → 5-rep q90=0.232 — same pattern. See `experiments/capra_q90_v1_t6_5rep.md`.
+
+**METHODOLOGY LESSON (from 3 candidates killed by this same issue)**: n_reps=3
+in-optim scoring is systematically **biased low** for tail-aware aggregators
+(`max`, `q90`, even `q75` to a smaller degree). The optimizer picks
+candidates that *happen* to look good across 3 reps; 5-rep validation
+reveals the true distribution and the candidate snaps back.
+
+**Recommendation for future tuning**: use `--n-reps-per-trial 5` in optim
+for any tail-aware metric. Wall time is 1.67× longer but the
+lucky-sample → bad-validation gap disappears. Or stick with q75 metric
+(less affected — see trial 18's 5-rep q75=0.078 matching its in-optim
+0.098 within reasonable noise).
+
 **Headline:** Trial 22 is the new deployment winner. Two near-tied q75 optima
 came out of the `capra_focused_v3` 24-trial study (10 → 0.0975, 22 → 0.0983
 on in-optim n_reps=3). 5-rep validations on the same 7-bag set showed:
