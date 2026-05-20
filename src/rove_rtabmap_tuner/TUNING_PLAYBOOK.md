@@ -4,12 +4,13 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-**Updated 2026-05-20 — `capra_near_18_v1` trial 6 is the new deployment winner.**
+**Updated 2026-05-20 — `capra_focused_v3` trial 22 retained as default after 10-rep correction. Trial 6 is a Pareto candidate with a 1.4% failure rate.**
 
-| candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source / status |
-|---|---|---|---|---|
-| **`capra_near_18_v1` trial 6** ← **NEW DEPLOYMENT WINNER** (dominates trial 22 on q75 AND worst-bag) | **0.128** | **0.0713** | 0.299 | `experiments/capra_near_18_v1_t6_5rep.md` (NEW — n_reps=5 optim in trial 18's basin) |
-| `capra_focused_v3` trial 22 (prev winner) | 0.177 | 0.087 | **0.258** | `experiments/trial_22_5rep.md` (still best on max worst-bag by small margin) |
+| candidate | median worst-bag | median q75 | max worst-bag | failures | source / status |
+|---|---|---|---|---|---|
+| **`capra_focused_v3` trial 22** ← **DEPLOYMENT DEFAULT** (5-rep) | **0.177** | 0.087 | **0.258** | 0/35 | `experiments/trial_22_5rep.md` |
+| `capra_near_18_v1` trial 6 (10-rep, corrected) | 0.173 | 0.088 | 1.0 (FAIL) | 1/70 (1.4%) | `experiments/capra_near_18_v1_t6_correction_10rep.md` (5-rep claim corrected — see writeup) |
+| `capra_near_22_v1` trial 18 (5-rep) | 0.207 | 0.078 | 0.331 | 0/35 | `experiments/near_22_t18_5rep.md` |
 | `capra_near_22_v1` trial 18 (q75 Pareto alt v1) | 0.207 | 0.078 | 0.331 | `experiments/near_22_t18_5rep.md` |
 | `capra_near_22_v2` trial 9 (q75 Pareto alt v2) | 0.197 | 0.0795 | 0.388 | `experiments/capra_near_22_v2_t9_5rep.md` (n_reps=5 optim) |
 | `capra_near_22_v2` trial 8 | 0.215 (1 FAIL) | 0.086 | 1.0 (FAIL) | `experiments/capra_near_22_v2_t8_5rep.md` (failed bag3 in 1/5 reps) |
@@ -72,7 +73,16 @@ The `capra_max_v1` study (optimizing max-aggregation directly, 10 trials)
 failed to find an improvement over #367 in this search space; max metric is
 too noisy without more reps per trial.
 
-### Near-18 trial 6 deployment block (NEW recommendation — 2026-05-20)
+### Near-18 trial 6 (Pareto alt — long-bag specialist, 1.4% bag failure risk)
+
+> Initial 5-rep validation reported as new winner (q75=0.0713,
+> worst-bag=0.128); a second 5-rep validation caught a
+> `moving_long_bag3` failure the first run missed. Combined 10-rep
+> result ties trial 22 on aggregates but has a 1.4% per-bag failure
+> rate. **Trial 22 is still the safer deployment default.** Use trial 6
+> only if you can monitor for the failure mode at runtime, or are okay
+> with retries on bag-like recordings.
+>
 
 ```bash
 ros2 run rove_rtabmap_tuner run_trial \
