@@ -4,12 +4,12 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-**Updated 2026-05-20 — `capra_focused_v3` trial 22 retained as default after 10-rep correction. Trial 6 is a Pareto candidate with a 1.4% failure rate.**
+**Updated 2026-05-20 — second 5-rep of trial 22 also found a hidden ~10% failure. Both leading candidates have ~1.4% per-bag failure rate; the "0 failures" claim was a lucky-5-rep artifact.**
 
 | candidate | median worst-bag | median q75 | max worst-bag | failures | source / status |
 |---|---|---|---|---|---|
-| **`capra_focused_v3` trial 22** ← **DEPLOYMENT DEFAULT** (5-rep) | **0.177** | 0.087 | **0.258** | 0/35 | `experiments/trial_22_5rep.md` |
-| `capra_near_18_v1` trial 6 (10-rep, corrected) | 0.173 | 0.088 | 1.0 (FAIL) | 1/70 (1.4%) | `experiments/capra_near_18_v1_t6_correction_10rep.md` (5-rep claim corrected — see writeup) |
+| **`capra_focused_v3` trial 22** ← **DEPLOYMENT DEFAULT** (10-rep est) | ~0.195 | ~0.080 | 1.0 (FAIL in v2) | 1/70 (1.4%) | `experiments/trial_22_5rep.md` + `experiments/trial_22_second_5rep.md` |
+| `capra_near_18_v1` trial 6 (10-rep) | 0.173 | 0.088 | 1.0 (FAIL) | 1/70 (1.4%) | `experiments/capra_near_18_v1_t6_correction_10rep.md` |
 | `capra_near_22_v1` trial 18 (5-rep) | 0.207 | 0.078 | 0.331 | 0/35 | `experiments/near_22_t18_5rep.md` |
 | `capra_near_22_v1` trial 18 (q75 Pareto alt v1) | 0.207 | 0.078 | 0.331 | `experiments/near_22_t18_5rep.md` |
 | `capra_near_22_v2` trial 9 (q75 Pareto alt v2) | 0.197 | 0.0795 | 0.388 | `experiments/capra_near_22_v2_t9_5rep.md` (n_reps=5 optim) |
