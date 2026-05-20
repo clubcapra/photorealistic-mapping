@@ -4,11 +4,12 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-**Updated 2026-05-20 — second 5-rep of trial 22 also found a hidden ~10% failure. Both leading candidates have ~1.4% per-bag failure rate; the "0 failures" claim was a lucky-5-rep artifact.**
+**Updated 2026-05-20 — `trial_6_variant_kf075` is the new deployment winner (hand-tuned from trial 6, 0 failures in 10-rep).**
 
 | candidate | median worst-bag | median q75 | max worst-bag | failures | source / status |
 |---|---|---|---|---|---|
-| **`capra_focused_v3` trial 22** ← **DEPLOYMENT DEFAULT** (10-rep est) | ~0.195 | ~0.080 | 1.0 (FAIL in v2) | 1/70 (1.4%) | `experiments/trial_22_5rep.md` + `experiments/trial_22_second_5rep.md` |
+| **`trial_6_variant_kf075`** ← **NEW DEPLOYMENT WINNER** (10-rep) | **0.133** | **0.0774** | ~0.31 | **0/70 (0%)** | `experiments/trial_6_variant_kf075_10rep.md` (trial 6 + `odom_scan_keyframe_thr=0.75` instead of 0.885 — eliminates bag3 failure) |
+| `capra_focused_v3` trial 22 (10-rep est) | ~0.195 | ~0.080 | 1.0 (FAIL in v2) | 1/70 (1.4%) | `experiments/trial_22_5rep.md` + `experiments/trial_22_second_5rep.md` |
 | `capra_near_18_v1` trial 6 (10-rep) | 0.173 | 0.088 | 1.0 (FAIL) | 1/70 (1.4%) | `experiments/capra_near_18_v1_t6_correction_10rep.md` |
 | `capra_near_22_v1` trial 18 (5-rep) | 0.207 | 0.078 | 0.331 | 0/35 | `experiments/near_22_t18_5rep.md` |
 | `capra_near_22_v1` trial 18 (q75 Pareto alt v1) | 0.207 | 0.078 | 0.331 | `experiments/near_22_t18_5rep.md` |
@@ -73,7 +74,41 @@ The `capra_max_v1` study (optimizing max-aggregation directly, 10 trials)
 failed to find an improvement over #367 in this search space; max metric is
 too noisy without more reps per trial.
 
-### Near-18 trial 6 (Pareto alt — long-bag specialist, 1.4% bag failure risk)
+### `trial_6_variant_kf075` deployment block (NEW WINNER — 2026-05-20)
+
+```bash
+ros2 run rove_rtabmap_tuner run_trial \
+  --bag /path/to/bag --output-root ./verify --trial-id deploy \
+  --expected-update-rate 50.0 --max-bag-duration-s 300 \
+  --bag-play-arg=--topics --bag-play-arg=/livox/lidar --bag-play-arg=/imu/data \
+  --bag-play-arg=/tf --bag-play-arg=/tf_static \
+  -s icp_iterations=7 \
+  -s icp_map_correspondence_ratio=0.09849734301357793 \
+  -s icp_max_correspondence_distance=0.0810030219106119 \
+  -s icp_max_translation=0.45684472051249736 \
+  -s icp_odom_correspondence_ratio=0.1246205588641772 \
+  -s icp_outlier_ratio=0.16835800055096892 \
+  -s icp_point_to_plane_k=25 \
+  -s icp_strategy=1 \
+  -s icp_voxel_size=0.04184289695746849 \
+  -s mem_stm_size=7 \
+  -s odom_scan_keyframe_thr=0.75 \
+  -s odomf2m_scan_max_size=10765 \
+  -s odomf2m_scan_subtract_radius=0.12337633169863922 \
+  -s rgbd_angular_update=0.04695654220771511 \
+  -s rgbd_linear_update=0.3422465680761723 \
+  -s rgbd_proximity_path_max_neighbors=5
+```
+
+**Only differs from trial 6 by one knob: `odom_scan_keyframe_thr=0.75` (vs trial 6's 0.885).** That single change eliminates the bag3 failure mode while preserving all of trial 6's long-bag tightness. 10-rep validation: 0/70 bag failures, median q75=0.077, median worst-bag=0.133.
+
+Improvement over trial 22 (10-rep estimated baseline):
+- median q75: -3.3% (0.0774 vs 0.080)
+- median worst-bag: -32% (0.133 vs 0.195)
+- bag failure rate: -100% (0% vs 1.4%)
+- per-bag long-bag drifts: 50-75% lower
+
+### Near-18 trial 6 (prior — superseded by the kf075 variant above)
 
 > Initial 5-rep validation reported as new winner (q75=0.0713,
 > worst-bag=0.128); a second 5-rep validation caught a
