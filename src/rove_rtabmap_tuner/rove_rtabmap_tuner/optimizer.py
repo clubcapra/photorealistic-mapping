@@ -231,6 +231,32 @@ SEARCH_SPACE_NEAR_22: dict[str, tuple] = {
 }
 
 
+# `near_18` — anchored ±30-40% around capra_near_22_v1 trial 18's params.
+# Trial 18 is the q75-Pareto alt (5-rep median q75=0.078, worst-bag 0.207).
+# It uses a coarser voxel and sparser keyframing than trial 22. near_18
+# refines its specific operating point — a different basin from near_22.
+SEARCH_SPACE_NEAR_18: dict[str, tuple] = {
+    'icp_voxel_size':                  ('float', 0.030, 0.065, True),    # was 0.044
+    'icp_max_correspondence_distance': ('float', 0.060, 0.140, True),    # was 0.094
+    'icp_iterations':                  ('int', 7, 14),                    # was 10
+    'icp_outlier_ratio':               ('float', 0.08, 0.20, False),      # was 0.129
+    'icp_max_translation':             ('float', 0.25, 0.55, False),      # was 0.398
+    'icp_point_to_plane_k':            ('int', 18, 36),                   # was 27
+    'icp_strategy':                    ('cat', ['1']),                    # locked
+    'odom_scan_keyframe_thr':          ('float', 0.50, 0.95, False),      # was 0.722
+    'odomf2m_scan_max_size':           ('int', 10000, 22000),             # was 14903
+    'odomf2m_scan_subtract_radius':    ('float', 0.06, 0.15, True),       # was 0.0996
+    'icp_odom_correspondence_ratio':   ('float', 0.10, 0.22, False),      # was 0.159
+    # trial 18's notable knob: rgbd_linear_update=0.42 (sparser keyframing).
+    # Search around it ±30%.
+    'rgbd_linear_update':              ('float', 0.30, 0.60, False),      # was 0.420
+    'rgbd_angular_update':             ('float', 0.04, 0.10, False),      # was 0.063
+    'mem_stm_size':                    ('int', 7, 13),                    # was 10
+    'icp_map_correspondence_ratio':    ('float', 0.08, 0.18, False),      # was 0.115
+    'rgbd_proximity_path_max_neighbors': ('int', 2, 7),                   # was 4
+}
+
+
 SEARCH_SPACE: dict[str, tuple] = {
     # ICP shared. voxel_size and max_correspondence_distance ranges narrowed
     # after observing that large-voxel optima (~0.3m) cause visible ghosting
@@ -692,7 +718,7 @@ def main() -> int:
         help='(Legacy; ignored — per-metric fail_value in METRICS is now used.)',
     )
     parser.add_argument(
-        '--search-space', choices=['wide', 'near_367', 'near_22'], default='wide',
+        '--search-space', choices=['wide', 'near_367', 'near_22', 'near_18'], default='wide',
         help='Which preconfigured search space to use. "wide" (default) is '
              'the original 16-dim exploration ranges. "near_367" is narrowed '
              'to ±~30-50%% around trial #367\'s values for refining a '
@@ -747,6 +773,8 @@ def main() -> int:
         space = SEARCH_SPACE_NEAR_367
     elif args.search_space == 'near_22':
         space = SEARCH_SPACE_NEAR_22
+    elif args.search_space == 'near_18':
+        space = SEARCH_SPACE_NEAR_18
     else:
         space = SEARCH_SPACE
 

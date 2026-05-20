@@ -4,14 +4,15 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 
 ## TL;DR — recommended deployment params
 
-**Updated 2026-05-15 — overnight `capra_focused_v3` + day-2 follow-up experiments.**
+**Updated 2026-05-20 — `capra_near_18_v1` trial 6 is the new deployment winner.**
 
 | candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source / status |
 |---|---|---|---|---|
-| **`capra_focused_v3` trial 22** ← **DEPLOYMENT WINNER** (default — robust) | **0.177** | 0.087 | **0.258** | `experiments/trial_22_5rep.md` |
-| **`capra_near_22_v1` trial 18** (q75 Pareto alt) | 0.207 | **0.078** | 0.331 | `experiments/near_22_t18_5rep.md` |
-| **`capra_near_22_v2` trial 9** (q75 Pareto alt v2) | 0.197 | 0.0795 | 0.388 | `experiments/capra_near_22_v2_t9_5rep.md` (new — n_reps=5 optim) |
-| `capra_near_22_v2` trial 8 | 0.215 (1 FAIL) | 0.086 | 1.0 (FAIL) | `experiments/capra_near_22_v2_t8_5rep.md` (n_reps=5 in-optim winner; failed bag3 in 1/5 reps) |
+| **`capra_near_18_v1` trial 6** ← **NEW DEPLOYMENT WINNER** (dominates trial 22 on q75 AND worst-bag) | **0.128** | **0.0713** | 0.299 | `experiments/capra_near_18_v1_t6_5rep.md` (NEW — n_reps=5 optim in trial 18's basin) |
+| `capra_focused_v3` trial 22 (prev winner) | 0.177 | 0.087 | **0.258** | `experiments/trial_22_5rep.md` (still best on max worst-bag by small margin) |
+| `capra_near_22_v1` trial 18 (q75 Pareto alt v1) | 0.207 | 0.078 | 0.331 | `experiments/near_22_t18_5rep.md` |
+| `capra_near_22_v2` trial 9 (q75 Pareto alt v2) | 0.197 | 0.0795 | 0.388 | `experiments/capra_near_22_v2_t9_5rep.md` (n_reps=5 optim) |
+| `capra_near_22_v2` trial 8 | 0.215 (1 FAIL) | 0.086 | 1.0 (FAIL) | `experiments/capra_near_22_v2_t8_5rep.md` (failed bag3 in 1/5 reps) |
 | `capra_focused_v3` trial 10 | 0.180 | 0.130 | 0.289 | `experiments/capra_focused_v3_winner_5rep.md` |
 | `study_full` trial 349 (long-bag specialist v2) | 0.233 | 0.099 | 0.414 | `experiments/study_full_trial_349_5rep.md` (5-bag median max=0.056, on-par with original) |
 | `#367` (historical baseline) | 0.221 | 0.148 | 0.354 | `experiments/baseline_367_7bag_5rep.md` |
@@ -71,7 +72,41 @@ The `capra_max_v1` study (optimizing max-aggregation directly, 10 trials)
 failed to find an improvement over #367 in this search space; max metric is
 too noisy without more reps per trial.
 
-### Trial 22 deployment block (NEW recommendation)
+### Near-18 trial 6 deployment block (NEW recommendation — 2026-05-20)
+
+```bash
+ros2 run rove_rtabmap_tuner run_trial \
+  --bag /path/to/bag --output-root ./verify --trial-id deploy \
+  --expected-update-rate 50.0 --max-bag-duration-s 300 \
+  --bag-play-arg=--topics --bag-play-arg=/livox/lidar --bag-play-arg=/imu/data \
+  --bag-play-arg=/tf --bag-play-arg=/tf_static \
+  -s icp_iterations=7 \
+  -s icp_map_correspondence_ratio=0.09849734301357793 \
+  -s icp_max_correspondence_distance=0.0810030219106119 \
+  -s icp_max_translation=0.45684472051249736 \
+  -s icp_odom_correspondence_ratio=0.1246205588641772 \
+  -s icp_outlier_ratio=0.16835800055096892 \
+  -s icp_point_to_plane_k=25 \
+  -s icp_strategy=1 \
+  -s icp_voxel_size=0.04184289695746849 \
+  -s mem_stm_size=7 \
+  -s odom_scan_keyframe_thr=0.8846779645360893 \
+  -s odomf2m_scan_max_size=10765 \
+  -s odomf2m_scan_subtract_radius=0.12337633169863922 \
+  -s rgbd_angular_update=0.04695654220771511 \
+  -s rgbd_linear_update=0.3422465680761723 \
+  -s rgbd_proximity_path_max_neighbors=5
+```
+
+This was found in `SEARCH_SPACE_NEAR_18` (added 2026-05-20), centered
+on trial 18's params. Trial 6 itself is *not* close to trial 18 on
+every dim — notable differences are `odom_scan_keyframe_thr=0.885` (vs
+trial 18's 0.722, much higher — keyframes less aggressively) and
+`mem_stm_size=7` (vs trial 18's 10, shorter STM). The combination
+produces a long-bag specialization (drift halved or better on 4 of 5
+long bags vs trial 22) while keeping turning-bag drift similar.
+
+### Trial 22 deployment block (prior recommendation — superseded by near_18 t6 above)
 
 ```bash
 ros2 run rove_rtabmap_tuner run_trial \
