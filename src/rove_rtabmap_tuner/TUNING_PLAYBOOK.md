@@ -9,7 +9,9 @@ A working set of recipes and findings from the capra_full_v1 study (~700 trials)
 | candidate | median worst-bag (5 rep) | median q75 (5 rep) | max worst-bag (5 rep) | source / status |
 |---|---|---|---|---|
 | **`capra_focused_v3` trial 22** ← **DEPLOYMENT WINNER** (default — robust) | **0.177** | 0.087 | **0.258** | `experiments/trial_22_5rep.md` |
-| **`capra_near_22_v1` trial 18** (long-bag specialist) | 0.207 | **0.078** | 0.331 | `experiments/near_22_t18_5rep.md` (new — Pareto alt to trial 22) |
+| **`capra_near_22_v1` trial 18** (q75 Pareto alt) | 0.207 | **0.078** | 0.331 | `experiments/near_22_t18_5rep.md` |
+| **`capra_near_22_v2` trial 9** (q75 Pareto alt v2) | 0.197 | 0.0795 | 0.388 | `experiments/capra_near_22_v2_t9_5rep.md` (new — n_reps=5 optim) |
+| `capra_near_22_v2` trial 8 | 0.215 (1 FAIL) | 0.086 | 1.0 (FAIL) | `experiments/capra_near_22_v2_t8_5rep.md` (n_reps=5 in-optim winner; failed bag3 in 1/5 reps) |
 | `capra_focused_v3` trial 10 | 0.180 | 0.130 | 0.289 | `experiments/capra_focused_v3_winner_5rep.md` |
 | `study_full` trial 349 (long-bag specialist v2) | 0.233 | 0.099 | 0.414 | `experiments/study_full_trial_349_5rep.md` (5-bag median max=0.056, on-par with original) |
 | `#367` (historical baseline) | 0.221 | 0.148 | 0.354 | `experiments/baseline_367_7bag_5rep.md` |
@@ -34,6 +36,12 @@ Day-2 follow-up experiments (all negative — trial 22 unchanged as winner):
 Day-4 follow-up experiments (all negative — confirming a methodology issue):
 - **MO NSGA-II (q75 + max), 23 trials**: best Pareto trial (#9) had in-optim q75=0.076 max=0.102 but 5-rep showed q75=0.128 max=0.384 — **lucky in-optim sample**. See `experiments/capra_mo_v1_t9_5rep.md`.
 - **q90 single-obj, 8 trials**: best trial 6 in-optim q90=0.138 → 5-rep q90=0.232 — same pattern. See `experiments/capra_q90_v1_t6_5rep.md`.
+
+Day-5 (n_reps=5 in-optim experiment):
+- **capra_near_22_v2**: 20-trial study with `n_reps=5` per trial (vs n_reps=3 previously). Two winners 5-rep-validated:
+  - **trial 8 (in-optim q75=0.0755)**: 5-rep q75=0.086 (within 14% of in-optim, much tighter than n_reps=3 gaps) — but failed `moving_long_bag3` in 1 of 5 validation reps. n_reps=5 gives more honest in-optim scores but doesn't catch rare failure modes.
+  - **trial 9 (in-optim q75=0.0920)**: 5-rep q75=0.0795 — tied with trial 18, 0 failures. Pareto-equivalent.
+- **The q75 floor in the near_22 basin is ~0.08**, repeatable across 3 different runs with different priors. The worst-bag floor (~0.18) is set by RTAB-Map's non-determinism on `turning_bag2` and `moving_long_bag1`.
 
 **METHODOLOGY LESSON (from 3 candidates killed by this same issue)**: n_reps=3
 in-optim scoring is systematically **biased low** for tail-aware aggregators
