@@ -142,6 +142,28 @@ METRICS: dict[str, MetricSpec] = {
         extract=lambda s: float(s.get('loop_closure_count') or 0),
         fail_value=0.0,
     ),
+    # Map cleanliness: median local-plane-fit thickness of the assembled
+    # point cloud (m). Lower = cleaner. Critical defense against the trial 6
+    # variant gaming where the optimizer under-reports motion to minimize
+    # drift_per_path — a stationary trajectory produces points piled onto
+    # geometry from elsewhere, which inflates this number even when drift is
+    # "good". Defaults to median across bags.
+    'map_thickness_m': MetricSpec(
+        'map_thickness_m', 'minimize',
+        extract=lambda s: float(s.get('map_thickness_m') or 1.0),
+        fail_value=1.0,
+    ),
+    # Bounding-box diagonal of the assembled scan cloud. Tracked for
+    # diagnostics: compare to ``path_length_m``. If extent > path_length the
+    # trajectory is under-counting motion (impossible to have a cloud larger
+    # than the path you walked, modulo lidar range). Optimizing on this
+    # directly is awkward (no monotonic preference); use as a tracked
+    # signal or build a derived penalty metric.
+    'cloud_spatial_extent_m': MetricSpec(
+        'cloud_spatial_extent_m', 'maximize',
+        extract=lambda s: float(s.get('cloud_spatial_extent_m') or 0.0),
+        fail_value=0.0,
+    ),
 }
 
 
