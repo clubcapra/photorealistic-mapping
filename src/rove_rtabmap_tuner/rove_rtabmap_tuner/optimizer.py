@@ -164,6 +164,35 @@ METRICS: dict[str, MetricSpec] = {
         extract=lambda s: float(s.get('cloud_spatial_extent_m') or 0.0),
         fail_value=0.0,
     ),
+    # Composite metric defending against motion under-counting (the trial 6
+    # variant gaming pattern discovered 2026-05-22). Combines drift_per_path
+    # with a multiplicative penalty when the assembled cloud's spatial
+    # extent exceeds the reported path length — that's physically
+    # impossible without motion under-counting. Formula:
+    #
+    #     composite = drift_per_path * (1 + max(0, extent/path - 1.0))
+    #
+    # For honest trajectories (extent <= path, the typical case for loop
+    # walking), composite reduces to drift_per_path. For gamed trajectories
+    # (extent > path), the multiplier amplifies drift_per_path linearly with
+    # the gaming severity. extent=3*path → composite=3*drift_per_path.
+    #
+    # Falls back to plain drift_per_path if extent is unavailable (cloud
+    # export failed); a trial where rtabmap-export consistently fails is
+    # already a poor candidate.
+    'drift_per_path_with_extent_penalty': MetricSpec(
+        'drift_per_path_with_extent_penalty', 'minimize',
+        extract=lambda s: (
+            float(s.get('drift_per_path') or 1.0)
+            * (1.0 + max(
+                0.0,
+                (float(s.get('cloud_spatial_extent_m') or 0.0)
+                 / max(float(s.get('path_length_m') or 0.0), 0.1))
+                - 1.0,
+            ))
+        ),
+        fail_value=1.0,
+    ),
 }
 
 
