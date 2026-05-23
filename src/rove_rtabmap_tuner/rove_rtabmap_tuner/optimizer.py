@@ -167,15 +167,23 @@ METRICS: dict[str, MetricSpec] = {
     # Composite metric defending against motion under-counting (the trial 6
     # variant gaming pattern discovered 2026-05-22). Combines drift_per_path
     # with a multiplicative penalty when the assembled cloud's spatial
-    # extent exceeds the reported path length — that's physically
-    # impossible without motion under-counting. Formula:
+    # extent exceeds the reported path length — physically impossible
+    # without motion under-counting. Formula:
     #
-    #     composite = drift_per_path * (1 + max(0, extent/path - 1.0))
+    #     path_scale = clamp((path - 5) / 15, 0, 1)
+    #     ext_ratio  = extent / path
+    #     penalty    = path_scale * max(0, ext_ratio - 1.0)
+    #     composite  = drift_per_path * (1 + penalty)
     #
-    # For honest trajectories (extent <= path, the typical case for loop
-    # walking), composite reduces to drift_per_path. For gamed trajectories
-    # (extent > path), the multiplier amplifies drift_per_path linearly with
-    # the gaming severity. extent=3*path → composite=3*drift_per_path.
+    # The path_scale is 0 for path<5m (turning bags where the robot rotates
+    # in place: path≈2m but lidar sees a 30m room — false positive otherwise),
+    # ramps linearly to 1.0 at path=20m, then stays at 1.0.
+    #
+    # For honest trajectories (extent <= path) the penalty is 0 and
+    # composite == drift_per_path. For gamed trajectories on long-path bags
+    # (e.g. rosbag-local-drift: path 12.75m, extent 39m, ratio 3.05,
+    # path_scale 0.52) penalty = 0.52*(3.05-1) = 1.07 → composite =
+    # drift_per_path * 2.07.
     #
     # Falls back to plain drift_per_path if extent is unavailable (cloud
     # export failed); a trial where rtabmap-export consistently fails is
@@ -184,11 +192,14 @@ METRICS: dict[str, MetricSpec] = {
         'drift_per_path_with_extent_penalty', 'minimize',
         extract=lambda s: (
             float(s.get('drift_per_path') or 1.0)
-            * (1.0 + max(
-                0.0,
-                (float(s.get('cloud_spatial_extent_m') or 0.0)
-                 / max(float(s.get('path_length_m') or 0.0), 0.1))
-                - 1.0,
+            * (1.0 + (
+                max(0.0, min(1.0, (float(s.get('path_length_m') or 0.0) - 5.0) / 15.0))
+                * max(
+                    0.0,
+                    (float(s.get('cloud_spatial_extent_m') or 0.0)
+                     / max(float(s.get('path_length_m') or 0.0), 0.1))
+                    - 1.0,
+                )
             ))
         ),
         fail_value=1.0,
