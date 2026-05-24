@@ -119,17 +119,20 @@ def build_refine_space(
 ) -> SearchSpace:
     """Build the stage-E joint-refine space from previous stages' bests.
 
-    For each float/int param, the new bounds are best * (1 +/- half_width_frac).
+    For each float/int param, the new bounds are best * (1 +/- half_width_frac);
+    the param's `default` is set to the cumulative best so the orchestrator
+    can enqueue it as stage E's trial 0 (guaranteed not worse than carryover).
     Categorical params are pinned to their best value (no further search).
     """
     params: List[ParamSpec] = []
     for stage_name, best_params in best_per_stage.items():
         for pname, value in best_params.items():
             if isinstance(value, bool) or isinstance(value, str):
-                # Categorical — pin via single-choice.
+                choice = str(value).lower() if isinstance(value, bool) else str(value)
                 params.append(ParamSpec(
                     name=pname, kind='categorical',
-                    choices=[str(value).lower() if isinstance(value, bool) else str(value)],
+                    choices=[choice],
+                    default=choice,
                 ))
             elif isinstance(value, (int, float)):
                 v = float(value)
@@ -137,8 +140,10 @@ def build_refine_space(
                 low = max(0.0, v - half) if v >= 0 else v - half
                 high = v + half
                 kind = 'int' if isinstance(value, int) else 'float'
+                default_value = int(v) if kind == 'int' else v
                 params.append(ParamSpec(
                     name=pname, kind=kind, low=low, high=high, log=False,
+                    default=default_value,
                 ))
     return SearchSpace(
         name='stage_e_joint_refine',

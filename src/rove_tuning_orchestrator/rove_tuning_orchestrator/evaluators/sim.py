@@ -42,7 +42,10 @@ class SimEvaluatorConfig:
     # the trial is marked failed. Defeats "robot didn't move => low drift_ratio"
     # gaming where the scorer sees small_drift / small_traj as success.
     # See project-scoring-gaming memory for the precedent.
-    min_trajectory_length_m: float = 1.0
+    # Robot has to have moved at least this much (per ground truth) for the
+    # trial to count. Set well below typical slow_short slip (~0.45 m) but
+    # well above the "scoring-gamed stuck robot" pattern (~0.001 m).
+    min_trajectory_length_m: float = 0.2
 
 
 class SimEvaluator(Evaluator):
