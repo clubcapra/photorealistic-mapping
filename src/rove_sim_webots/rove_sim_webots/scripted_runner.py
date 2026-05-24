@@ -51,6 +51,38 @@ def _build_env(domain_id: int, headless: bool = False) -> dict:
     return env
 
 
+def _clean_stale_xvfb_locks() -> None:
+    """Remove /tmp/.Xn-lock + /tmp/.X11-unix/Xn for displays without a live
+    Xvfb process. xvfb-run -a picks the lowest free display number; stale
+    locks make it bump higher each call until it sometimes hits a number
+    where Xvfb fails to come up (intermittent "X11 connection broke" at
+    Webots startup). Cleaning before each trial keeps display numbers low
+    and predictable.
+    """
+    import glob
+    import subprocess as _sp
+    for lock in glob.glob('/tmp/.X*-lock'):
+        name = os.path.basename(lock)
+        if not name.startswith('.X') or not name.endswith('-lock'):
+            continue
+        num = name[2:-5]
+        if not num.isdigit():
+            continue
+        # If Xvfb is actually running on this display, skip it.
+        rc = _sp.run(
+            ['pgrep', '-f', f'Xvfb :{num} '], capture_output=True,
+        ).returncode
+        if rc == 0:
+            continue
+        try:
+            os.remove(lock)
+            sock = f'/tmp/.X11-unix/X{num}'
+            if os.path.exists(sock):
+                os.remove(sock)
+        except OSError:
+            pass
+
+
 def _wrap_for_headless(cmd: List[str], headless: bool) -> List[str]:
     """In headless mode, always prepend xvfb-run for a clean isolated display.
 
@@ -65,6 +97,7 @@ def _wrap_for_headless(cmd: List[str], headless: bool) -> List[str]:
             'Headless mode requested but xvfb-run is not on PATH. '
             'Install xvfb (apt install xvfb).'
         )
+    _clean_stale_xvfb_locks()
     return ['xvfb-run', '-a', '--server-args=-screen 0 1024x768x24', *cmd]
 
 
