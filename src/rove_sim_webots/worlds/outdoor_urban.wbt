@@ -12,7 +12,9 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/SimpleBuilding.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/ResidentialBuilding.proto"
+# ResidentialBuilding's mesh is 14m × 57m — placing it at (15, -22) literally
+# put the robot's spawn (0, -16) inside the building geometry, blocking motion.
+# Using SimpleBuilding (smaller, well-bounded) everywhere instead.
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/obstacles/protos/OilBarrel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/traffic/protos/TrafficCone.proto"
@@ -27,9 +29,6 @@ EXTERNPROTO "../protos/Rove.proto"
 WorldInfo {
   basicTimeStep 16
   coordinateSystem "ENU"
-  contactProperties [
-    ContactProperties { coulombFriction [ 1.2 ] softCFM 0.0001 }
-  ]
 }
 Viewpoint {
   orientation -0.25 0.25 0.94 1.4
@@ -74,15 +73,19 @@ SimpleBuilding {
   startingFloor 0
   name "building_north"
 }
-ResidentialBuilding {
-  translation 15 -22 0
-  rotation 0 0 1 1.5708
-  name "building_residential_se"
+SimpleBuilding {
+  translation 18 -22 0
+  rotation 0 0 1 0
+  floorNumber 1
+  startingFloor 0
+  name "building_se"
 }
-ResidentialBuilding {
-  translation -15 -22 0
-  rotation 0 0 1 1.5708
-  name "building_residential_sw"
+SimpleBuilding {
+  translation -18 -22 0
+  rotation 0 0 1 0
+  floorNumber 1
+  startingFloor 0
+  name "building_sw"
 }
 
 # ============================================================
