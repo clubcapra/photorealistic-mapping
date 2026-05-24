@@ -232,6 +232,9 @@ def main() -> int:
     p.add_argument('--sim-trajectory', default='outdoor_loop1')
     p.add_argument('--sim-headless', action='store_true', default=True)
     p.add_argument('--sim-domain-id', type=int, default=122)
+    p.add_argument('--sim-webots-port', type=int, default=1234,
+                   help='Per-orchestrator Webots IPC port. MUST be unique '
+                        'across concurrent orchestrators on the same machine.')
     p.add_argument('--sim-timeout', type=float, default=300.0)
     p.add_argument('--enable-stage-e', action='store_true', default=True)
     p.add_argument('--refine-half-width', type=float, default=0.20)
@@ -258,6 +261,7 @@ def main() -> int:
             trajectory=args.sim_trajectory,
             headless=args.sim_headless,
             domain_id=args.sim_domain_id,
+            webots_port=args.sim_webots_port,
             timeout_s=args.sim_timeout,
         ),
         refine_half_width_frac=args.refine_half_width,

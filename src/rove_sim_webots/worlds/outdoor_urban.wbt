@@ -10,7 +10,7 @@
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/SimpleBuilding.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/ResidentialBuilding.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
@@ -27,6 +27,9 @@ EXTERNPROTO "../protos/Rove.proto"
 WorldInfo {
   basicTimeStep 16
   coordinateSystem "ENU"
+  contactProperties [
+    ContactProperties { coulombFriction [ 1.2 ] softCFM 0.0001 }
+  ]
 }
 Viewpoint {
   orientation -0.25 0.25 0.94 1.4
@@ -36,14 +39,15 @@ Viewpoint {
 TexturedBackground { }
 TexturedBackgroundLight { }
 
-Floor {
+# RectangleArena with very low walls — gives the robot a reliable collidable
+# floor (same physics as the warehouse world, which we know works). Floor +
+# UnevenTerrain both let the Rove sink with wheels clipping through; this
+# does not. Walls at 0.01 m are invisible to the robot but provide the floor.
+RectangleArena {
   translation 0 0 0
-  size 80 80
-  appearance PBRAppearance {
-    baseColor 0.42 0.42 0.42
-    roughness 0.9
-    metalness 0
-  }
+  floorSize 40 40
+  floorTileSize 2 2
+  wallHeight 4.5
 }
 
 # ============================================================
@@ -224,7 +228,7 @@ Pine    { translation  30   0 0  name "tree_p3" }
 Pine    { translation -30   0 0  name "tree_p4" }
 
 Rove {
-  translation 0 -17 0.4
+  translation 0 -16 0.4
   rotation 0 0 1 1.5708
   name "rove"
 }

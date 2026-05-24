@@ -20,12 +20,14 @@ from webots_ros2_driver.webots_controller import WebotsController
 from webots_ros2_driver.webots_launcher import WebotsLauncher
 
 
-def _get_ros2_nodes(*_args):
+def _get_ros2_nodes(port: str = '1234'):
+    """`port` must match the WebotsLauncher's port so the controller connects."""
     pkg_share = get_package_share_directory('rove_sim_webots')
     urdf_path = os.path.join(pkg_share, 'urdf', 'rove_webots.urdf')
 
     rove_driver = WebotsController(
         robot_name='rove',
+        port=port,
         parameters=[
             {'robot_description': urdf_path},
             {'use_sim_time': True},
@@ -78,6 +80,12 @@ def generate_launch_description():
         'false', '0', 'no', 'off',
     )
 
+    # Webots port: needs to be unique across concurrent sims on the same host.
+    # WebotsLauncher constructs WebotsController bound to this port — both must
+    # agree. We read from env (WEBOTS_PORT) since WebotsLauncher takes a string
+    # at construction time, not a LaunchConfiguration.
+    port = str(os.environ.get('WEBOTS_PORT', '1234'))
+
     webots = WebotsLauncher(
         world=PathJoinSubstitution([
             FindPackageShare('rove_sim_webots'), 'worlds', LaunchConfiguration('world'),
@@ -85,13 +93,14 @@ def generate_launch_description():
         mode=LaunchConfiguration('mode'),
         ros2_supervisor=True,
         gui=gui_enabled,
+        port=port,
     )
 
     # Respawn driver nodes when the user resets the world via Webots' GUI.
     reset_handler = launch.actions.RegisterEventHandler(
         event_handler=launch.event_handlers.OnProcessExit(
             target_action=webots._supervisor,
-            on_exit=_get_ros2_nodes,
+            on_exit=lambda *args: _get_ros2_nodes(port=port),
         )
     )
 
@@ -115,5 +124,5 @@ def generate_launch_description():
         webots._supervisor,
         shutdown_on_webots_exit,
         reset_handler,
-        *_get_ros2_nodes(),
+        *_get_ros2_nodes(port=port),
     ])

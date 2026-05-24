@@ -27,6 +27,10 @@ class SimEvaluatorConfig:
     trajectory: str = 'outdoor_loop1'
     headless: bool = True
     domain_id: int = 122  # in 120-140 range; orchestrator may override per-worker
+    # Per-instance Webots IPC port. MUST be unique across concurrent sims on
+    # the same machine. WebotsLauncher and WebotsController are coupled through
+    # this (the controller connects to <port>'s IPC socket).
+    webots_port: int = 1234
     timeout_s: float = 300.0
     # Penalty added to score per "missing estimated pose" — discourages
     # tracking-loss without making the metric unbounded.
@@ -34,6 +38,11 @@ class SimEvaluatorConfig:
     # If fewer than this fraction of GT poses get a matched estimate,
     # the trial is marked failed (tracking effectively lost).
     min_pair_ratio: float = 0.30
+    # If the robot moved less than this many meters (per ground truth),
+    # the trial is marked failed. Defeats "robot didn't move => low drift_ratio"
+    # gaming where the scorer sees small_drift / small_traj as success.
+    # See project-scoring-gaming memory for the precedent.
+    min_trajectory_length_m: float = 1.0
 
 
 class SimEvaluator(Evaluator):
@@ -60,6 +69,7 @@ class SimEvaluator(Evaluator):
         env = os.environ.copy()
         env['SIM_EXTRA_RTABMAP_ARGS'] = rtabmap_args
         env['ROS_DOMAIN_ID'] = str(self.cfg.domain_id)
+        env['WEBOTS_PORT'] = str(self.cfg.webots_port)
 
         cmd = [
             'python3', '-m', 'rove_sim_webots.scripted_runner',
@@ -125,6 +135,24 @@ class SimEvaluator(Evaluator):
                     'runner_log': str(log_path),
                     'validation_json': str(out_dir / 'validation.json'),
                     'bag': str(out_dir / 'bag'),
+                },
+            )
+
+        traj_len = report.get('trajectory_length_m', 0.0) or 0.0
+
+        if traj_len < self.cfg.min_trajectory_length_m:
+            return EvaluationResult(
+                score=2.0,  # worse than any valid drift_ratio + penalty
+                failed=True,
+                failure_reason=(
+                    f'trajectory_length_m={traj_len:.3f} < '
+                    f'{self.cfg.min_trajectory_length_m} — robot did not move; '
+                    f'scoring would be gameable, rejecting trial'
+                ),
+                metrics={**report, 'pair_ratio': pair_ratio},
+                artifacts={
+                    'runner_log': str(log_path),
+                    'validation_json': str(out_dir / 'validation.json'),
                 },
             )
 
