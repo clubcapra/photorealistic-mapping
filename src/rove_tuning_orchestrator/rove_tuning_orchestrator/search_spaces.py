@@ -53,6 +53,16 @@ class SearchSpace:
         return {p.name: p.suggest(trial) for p in self.params}
 
 
+def _coerce_bound(v, kind: str):
+    """YAML 1.1 (PyYAML safe_load) parses '1e-4' as a string. Cast explicitly
+    so Optuna receives proper numeric bounds."""
+    if v is None:
+        return None
+    if kind == 'int':
+        return int(float(v))  # via float so '1e2' -> 100
+    return float(v)
+
+
 def load(path: Path) -> SearchSpace:
     data = yaml.safe_load(path.read_text())
     params: List[ParamSpec] = []
@@ -61,8 +71,8 @@ def load(path: Path) -> SearchSpace:
         params.append(ParamSpec(
             name=pname,
             kind=kind,
-            low=spec.get('low'),
-            high=spec.get('high'),
+            low=_coerce_bound(spec.get('low'), kind),
+            high=_coerce_bound(spec.get('high'), kind),
             log=bool(spec.get('log', False)),
             choices=[str(c) for c in spec.get('choices', [])],
         ))
