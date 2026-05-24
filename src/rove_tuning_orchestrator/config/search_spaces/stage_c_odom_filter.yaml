@@ -1,0 +1,31 @@
+# Stage C — odometry guess + filtering.
+# How ICP odometry uses IMU/wheel guesses and filters its output.
+# Critical for tracking continuity on jerky platforms (tracked rovers).
+name: stage_c_odom_filter
+description: |
+  Key frame thresholds, guess strategies, IMU initialisation.
+params:
+  Odom/Strategy:
+    type: categorical
+    choices: ['0', '1', '2']  # 0=Frame-to-Map, 1=Frame-to-Frame, 2=ICP
+  Odom/KeyFrameThr:
+    type: float
+    low: 0.0
+    high: 0.95
+  Odom/GuessMotion:
+    type: categorical
+    choices: ['true', 'false']
+  Reg/Force3DoF:
+    type: categorical
+    choices: ['true', 'false']
+  Reg/Force4DoF:
+    type: categorical
+    choices: ['true', 'false']
+  Odom/FilteringStrategy:
+    type: categorical
+    choices: ['0', '1']  # 0=none, 1=Kalman
+  Odom/KalmanProcessNoise:
+    type: float
+    low: 1e-4
+    high: 1e-1
+    log: true

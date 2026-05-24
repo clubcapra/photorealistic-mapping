@@ -1,0 +1,26 @@
+# Stage B — ICP correspondence + outlier rejection.
+# Run AFTER stage A converges. These tune how aggressively ICP rejects
+# bad matches, which trades off precision against tracking robustness.
+name: stage_b_icp_corresp
+description: |
+  Point-to-plane K, normal radius, correspondence ratio threshold.
+params:
+  Icp/PointToPlaneK:
+    type: int
+    low: 3
+    high: 20
+  Icp/PointToPlaneRadius:
+    type: float
+    low: 0.0
+    high: 1.0
+  Icp/CorrespondenceRatio:
+    type: float
+    low: 0.05
+    high: 0.50
+  Icp/Strategy:
+    type: categorical
+    choices: ['0', '1']  # 0 = libpointmatcher, 1 = PCL
+  Icp/Epsilon:
+    type: float
+    low: 0.0
+    high: 0.01

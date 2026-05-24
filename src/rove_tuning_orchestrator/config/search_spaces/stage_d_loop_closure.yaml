@@ -1,0 +1,34 @@
+# Stage D — loop closure & graph optimisation.
+# Affects map coherence on revisits. Don't tune before A/B/C are stable —
+# you'll fit noise.
+name: stage_d_loop_closure
+description: |
+  Similarity threshold, max retrieved, graph optimiser.
+params:
+  Rtabmap/LoopThr:
+    type: float
+    low: 0.05
+    high: 0.30
+  Rtabmap/LoopRatio:
+    type: float
+    low: 0.0
+    high: 1.0
+  Rtabmap/MaxRetrieved:
+    type: int
+    low: 1
+    high: 5
+  RGBD/OptimizeMaxError:
+    type: float
+    low: 0.0
+    high: 3.0
+  RGBD/ProximityBySpace:
+    type: categorical
+    choices: ['true', 'false']
+  RGBD/LinearUpdate:
+    type: float
+    low: 0.01
+    high: 0.5
+  RGBD/AngularUpdate:
+    type: float
+    low: 0.01
+    high: 0.5

@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rove_tuning_orchestrator</name>
+  <version>0.1.0</version>
+  <description>
+    Two-phase RTAB-Map tuner: optimize on Webots simulation (ground-truth ATE)
+    then validate the top-K candidates against real bags by comparing to a
+    reference (cleaned-up) RTAB-Map database. Distributed via Optuna's
+    JournalFileStorage on a shared filesystem — no open ports required.
+  </description>
+  <maintainer email="iliana.dc@windo.cleaning">Iliana</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rove_sim_webots</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

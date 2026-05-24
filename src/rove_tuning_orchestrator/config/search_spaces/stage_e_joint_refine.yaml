@@ -1,0 +1,10 @@
+# Stage E — joint refine. Narrow search around the best A/B/C/D point.
+# Generated dynamically by the orchestrator: it reads the best params from
+# previous stages and produces a tight log-uniform window around each.
+# This file documents the SHAPE only; the orchestrator overrides bounds.
+name: stage_e_joint_refine
+description: |
+  Joint refinement of all best params from A-D in a narrow window.
+  Inherits param keys from previous stages — bounds set programmatically
+  in orchestrator._build_refine_space().
+params: {}
