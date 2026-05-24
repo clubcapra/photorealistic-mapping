@@ -1,8 +1,12 @@
 #VRML_SIM R2023b utf8
-# Indoor world — large industrial warehouse.
-# 40x40m arena. Pallet/box stacks and pipework form aisles that constrain
-# motion + give RTAB-Map plenty of vertical planar features. Conveyor belts
-# and a large valve provide distinct landmarks for loop closure.
+# Indoor world — large industrial warehouse (DENSE).
+# 40x40m arena tuned for IMU + LiDAR-only SLAM:
+#   - Two longitudinal partition walls + two cross-partitions forming a real
+#     aisle grid (the robot can't see across — forces revisits + loop closure)
+#   - 8 structural columns (Cylinder pillars) along aisles — sharp ICP edges
+#   - 3-tier crate stacks at varied positions for vertical ICP features
+#   - Conveyor belts at different orientations
+#   - Pipework + valves clustered near east wall
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
@@ -15,6 +19,7 @@ EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/project
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/pipes/protos/PipeSection.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/valves/protos/LargeValve.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/fire_extinguisher/protos/FireExtinguisher.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/street_furniture/protos/PublicBin.proto"
 EXTERNPROTO "../protos/Rove.proto"
 
 WorldInfo {
@@ -23,7 +28,7 @@ WorldInfo {
 }
 Viewpoint {
   orientation -0.2 0.2 0.96 1.2
-  position 15 -12 12
+  position 18 -14 14
   follow "rove"
 }
 TexturedBackground { }
@@ -33,71 +38,169 @@ RectangleArena {
   translation 0 0 0
   floorSize 40 40
   floorTileSize 2 2
-  wallHeight 4.0
+  wallHeight 4.5
 }
 
-# Two interior partitions to create aisles + force revisits.
-Wall { translation  6 0 0  size 0.3 24 3.5  name "partition_east" }
-Wall { translation -6 0 0  size 0.3 24 3.5  name "partition_west" }
+# ============================================================
+# Aisle-grid partitions: 2 longitudinal + 2 cross.
+# Creates 6 separate "rooms" that force loop closures on traversal.
+# ============================================================
+# Longitudinal partitions at x = -6 and x = 6 (with gap at y = 0 for cross-aisle).
+Wall { translation -6  9.5 0  size 0.3 11 4.0  name "long_w_n" }
+Wall { translation -6 -9.5 0  size 0.3 11 4.0  name "long_w_s" }
+Wall { translation  6  9.5 0  size 0.3 11 4.0  name "long_e_n" }
+Wall { translation  6 -9.5 0  size 0.3 11 4.0  name "long_e_s" }
+# Cross partitions at y = 0 (with gaps at x = ±10 for crossing).
+Wall { translation -15  0 0  size 8  0.3 4.0  name "cross_w" }
+Wall { translation  15  0 0  size 8  0.3 4.0  name "cross_e" }
 
-# West-aisle: stacks of crates and cardboard boxes.
+# ============================================================
+# Structural columns — 8 cylinders spread along the aisles.
+# Sharp vertical features ICP loves.
+# ============================================================
+DEF COLUMN_A Solid {
+  translation -12 12 2  name "col_nw1"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_B Solid {
+  translation -12 -12 2  name "col_sw1"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_C Solid {
+  translation 12 12 2  name "col_ne1"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_D Solid {
+  translation 12 -12 2  name "col_se1"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_E Solid {
+  translation 0 12 2  name "col_n"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_F Solid {
+  translation 0 -12 2  name "col_s"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_G Solid {
+  translation -3 0 2  name "col_mid_w"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+DEF COLUMN_H Solid {
+  translation 3 0 2  name "col_mid_e"
+  children [ Shape { appearance PBRAppearance { baseColor 0.45 0.45 0.5 roughness 0.7 }
+                     geometry Cylinder { height 4 radius 0.25 } } ]
+  boundingObject Cylinder { height 4 radius 0.25 }
+}
+
+# ============================================================
+# West aisle — 3-tier crate stacks
+# ============================================================
 DEF WEST_STACKS Group {
   children [
+    # NW stack
     CardboardBox { translation -10  10 0.3  size 1 1 0.6  name "cb_w1" }
     CardboardBox { translation -10  10 0.9  size 1 1 0.6  name "cb_w2" }
-    CardboardBox { translation -10   6 0.3  size 1.2 0.8 0.7  name "cb_w3" }
-    CardboardBox { translation -10   2 0.3  size 1 1 0.6  name "cb_w4" }
-    CardboardBox { translation -10  -2 0.3  size 1.0 1.0 0.9  name "cb_w5" }
-    CardboardBox { translation -10  -6 0.3  size 1 1 0.6  name "cb_w6" }
-    CardboardBox { translation -10 -10 0.3  size 1 1 0.6  name "cb_w7" }
-    WoodenBox    { translation -14   8 0.3  name "wb_w1" }
-    WoodenBox    { translation -14   4 0.3  name "wb_w2" }
-    WoodenBox    { translation -14   0 0.3  name "wb_w3" }
-    WoodenBox    { translation -14  -4 0.3  name "wb_w4" }
-    WoodenBox    { translation -14  -8 0.3  name "wb_w5" }
-    PlasticCrate { translation -16  10 0    name "pc_w1" }
-    PlasticCrate { translation -16  -10 0   name "pc_w2" }
+    CardboardBox { translation -10  10 1.5  size 1 1 0.6  name "cb_w3" }
+    # Mid-W stack
+    CardboardBox { translation -10  6 0.3  size 1.2 0.8 0.7  name "cb_w4" }
+    CardboardBox { translation -10  6 1.0  size 1 0.8 0.6    name "cb_w5" }
+    # Single boxes
+    CardboardBox { translation -10  2 0.3  size 1 1 0.6  name "cb_w6" }
+    CardboardBox { translation -10 -2 0.3  size 1 1 0.9  name "cb_w7" }
+    CardboardBox { translation -10 -6 0.3  size 1 1 0.6  name "cb_w8" }
+    # SW stack
+    CardboardBox { translation -10 -10 0.3  size 1 1 0.6  name "cb_w9" }
+    CardboardBox { translation -10 -10 0.9  size 1 1 0.6  name "cb_w10" }
+    # Wooden boxes
+    WoodenBox { translation -16   12 0.3  name "wb_w1" }
+    WoodenBox { translation -16    8 0.3  name "wb_w2" }
+    WoodenBox { translation -16    4 0.3  name "wb_w3" }
+    WoodenBox { translation -16    0 0.3  name "wb_w4" }
+    WoodenBox { translation -16   -4 0.3  name "wb_w5" }
+    WoodenBox { translation -16   -8 0.3  name "wb_w6" }
+    WoodenBox { translation -16  -12 0.3  name "wb_w7" }
+    # Plastic crates clusters
+    PlasticCrate { translation -18  12 0  name "pc_w1" }
+    PlasticCrate { translation -18  10 0  name "pc_w2" }
+    PlasticCrate { translation -18 -10 0  name "pc_w3" }
+    PlasticCrate { translation -18 -12 0  name "pc_w4" }
   ]
 }
 
-# East-aisle: pipework + conveyor + valves.
+# ============================================================
+# East aisle — pipework + conveyors + valves
+# ============================================================
 DEF EAST_FIXTURES Group {
   children [
     ConveyorBelt {
       translation 10 0 0
       rotation 0 0 1 1.5708
       size 16 1 0.8
-      name "conveyor_1"
+      name "conveyor_n_s"
     }
     ConveyorBelt {
       translation 14 -6 0
       rotation 0 0 1 1.5708
       size 8 1 0.8
-      name "conveyor_2"
+      name "conveyor_se"
     }
-    PipeSection { translation 16  10 0.5  name "pipe_1" }
-    PipeSection { translation 16   4 0.5  name "pipe_2" }
-    PipeSection { translation 16  -4 0.5  name "pipe_3" }
-    PipeSection { translation 16 -10 0.5  name "pipe_4" }
+    ConveyorBelt {
+      translation 14  8 0
+      rotation 0 0 1 0
+      size 6 1 0.8
+      name "conveyor_ne_horiz"
+    }
+    PipeSection { translation 16  12 0.5  name "pipe_1" }
+    PipeSection { translation 16   8 0.5  name "pipe_2" }
+    PipeSection { translation 16   4 0.5  name "pipe_3" }
+    PipeSection { translation 16   0 0.5  name "pipe_4" }
+    PipeSection { translation 16  -4 0.5  name "pipe_5" }
+    PipeSection { translation 16  -8 0.5  name "pipe_6" }
+    PipeSection { translation 16 -12 0.5  name "pipe_7" }
     LargeValve  { translation 14   0 1.0  name "valve_1" }
+    LargeValve  { translation 18 -10 1.0  name "valve_2" }
   ]
 }
 
-# Centre alley: scattered boxes + safety equipment.
-CardboardBox { translation 0  8 0.3  size 0.8 0.8 0.6  name "cb_c1" }
-CardboardBox { translation 0  3 0.3  size 1 0.6 0.6   name "cb_c2" }
-CardboardBox { translation 0 -3 0.3  size 0.8 1 0.6   name "cb_c3" }
-CardboardBox { translation 0 -8 0.3  size 1 1 0.5     name "cb_c4" }
-WoodenBox    { translation 2  12 0.3  name "wb_c1" }
-WoodenBox    { translation -2 -12 0.3 name "wb_c2" }
+# ============================================================
+# Centre aisle — scattered debris + safety
+# ============================================================
+CardboardBox { translation 0  10 0.3  size 0.8 0.8 0.6  name "cb_c1" }
+CardboardBox { translation 0   5 0.3  size 1 0.6 0.6   name "cb_c2" }
+CardboardBox { translation 0  -5 0.3  size 0.8 1 0.6   name "cb_c3" }
+CardboardBox { translation 0 -10 0.3  size 1 1 0.5     name "cb_c4" }
+WoodenBox    { translation -2  15 0.3  name "wb_c1" }
+WoodenBox    { translation  2 -15 0.3  name "wb_c2" }
+WoodenBox    { translation -2 -15 0.3  name "wb_c3" }
+WoodenBox    { translation  2  15 0.3  name "wb_c4" }
 
 FireExtinguisher { translation  5.5 -18 0.7  name "fire_ext_1" }
 FireExtinguisher { translation -5.5 -18 0.7  name "fire_ext_2" }
 FireExtinguisher { translation  5.5  18 0.7  name "fire_ext_3" }
 FireExtinguisher { translation -5.5  18 0.7  name "fire_ext_4" }
 
+PublicBin { translation  18  18 0  name "bin_1" }
+PublicBin { translation -18  18 0  name "bin_2" }
+PublicBin { translation  18 -18 0  name "bin_3" }
+PublicBin { translation -18 -18 0  name "bin_4" }
+
 Rove {
-  translation 0 -15 0.4
+  translation 0 -16 0.4
   rotation 0 0 1 1.5708
   name "rove"
 }

@@ -23,7 +23,7 @@ PROTO Rove [
   field SFFloat    lidarFreq       10
   field SFInt32    lidarHorizontal 1800
   field SFInt32    lidarVerticalLayers 16
-  field SFFloat    lidarMaxRange   130
+  field SFFloat    lidarMaxRange   60
   field SFInt32    cameraWidth     640
   field SFInt32    cameraHeight    480
 ]

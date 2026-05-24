@@ -1,16 +1,27 @@
 #VRML_SIM R2023b utf8
-# Outdoor world — urban / parking lot.
-# Flat ground (no terrain perlin), with man-made structures forming a partial
-# loop. Buildings provide long planar walls (great for ICP); cones, barrels,
-# and hydrants provide vertical features at short range.
+# Outdoor world — urban (DENSE).
+# Tuned for IMU + LiDAR-only SLAM. Mixes flat asphalt + small relief.
+#   - 5 buildings (3 large + 2 residential) on a partial perimeter
+#   - Inter-building walls + fences create alleyways
+#   - Several "raised platform" blocks (SolidBox) provide vertical relief
+#   - Two concentric traffic-cone loops + benches + bins for short-range
+#     features
+#   - Cypresses + Pines as long-range landmarks
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/SimpleBuilding.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/ResidentialBuilding.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/obstacles/protos/OilBarrel.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/traffic/protos/TrafficCone.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/street_furniture/protos/FireHydrant.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/street_furniture/protos/Bench.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/street_furniture/protos/PublicBin.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/manhole/protos/SquareManhole.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/trees/protos/Pine.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/trees/protos/Cypress.proto"
 EXTERNPROTO "../protos/Rove.proto"
 
 WorldInfo {
@@ -19,7 +30,7 @@ WorldInfo {
 }
 Viewpoint {
   orientation -0.25 0.25 0.94 1.4
-  position 18 -14 9
+  position 24 -18 12
   follow "rove"
 }
 TexturedBackground { }
@@ -27,73 +38,193 @@ TexturedBackgroundLight { }
 
 Floor {
   translation 0 0 0
-  size 60 60
+  size 80 80
   appearance PBRAppearance {
-    baseColor 0.45 0.45 0.45
+    baseColor 0.42 0.42 0.42
     roughness 0.9
     metalness 0
   }
 }
 
-# Three buildings forming a partial enclosure on three sides.
+# ============================================================
+# Buildings — 5-sided partial enclosure for loop trajectories
+# ============================================================
 SimpleBuilding {
-  translation 18 0 0
+  translation 22 0 0
   rotation 0 0 1 1.5708
-  floorNumber 2
+  floorNumber 3
   startingFloor 0
   name "building_east"
 }
 SimpleBuilding {
-  translation -18 0 0
+  translation -22 0 0
   rotation 0 0 1 -1.5708
-  floorNumber 2
+  floorNumber 3
   startingFloor 0
   name "building_west"
 }
 SimpleBuilding {
-  translation 0 18 0
+  translation 0 22 0
   rotation 0 0 1 0
-  floorNumber 1
+  floorNumber 2
   startingFloor 0
   name "building_north"
 }
+ResidentialBuilding {
+  translation 15 -22 0
+  rotation 0 0 1 1.5708
+  name "building_residential_se"
+}
+ResidentialBuilding {
+  translation -15 -22 0
+  rotation 0 0 1 1.5708
+  name "building_residential_sw"
+}
 
-# Traffic-cone "lanes" forming a loop the robot can drive around.
-DEF CONES_INNER Group {
+# ============================================================
+# Inter-building walls forming alleyways
+# ============================================================
+# East alley walls (between east building and SE residential)
+Wall { translation  19  -12 0  size 0.2 12 3.0  name "alley_wall_e1" }
+Wall { translation  16  -16 0  size 6   0.2 3.0  name "alley_wall_e2" }
+# West alley walls
+Wall { translation -19  -12 0  size 0.2 12 3.0  name "alley_wall_w1" }
+Wall { translation -16  -16 0  size 6   0.2 3.0  name "alley_wall_w2" }
+# North alley walls
+Wall { translation  -8   17 0  size 0.2 6  3.0  name "alley_wall_n1" }
+Wall { translation   8   17 0  size 0.2 6  3.0  name "alley_wall_n2" }
+# Free-standing perimeter wall segments (south side)
+Wall { translation -22 -22 0  size 8 0.2 2.4  name "perimeter_s1" }
+Wall { translation  22 -22 0  size 8 0.2 2.4  name "perimeter_s2" }
+
+# ============================================================
+# Raised platforms (SolidBox via Solid+Shape+Box children) —
+# vertical relief that the LiDAR can scan ABOVE the ground plane.
+# ============================================================
+DEF PLATFORM_1 Solid {
+  translation 10 12 0.4
+  name "platform_1"
   children [
-    TrafficCone { translation  4  4 0  name "cone_inner_1" }
-    TrafficCone { translation  4 -4 0  name "cone_inner_2" }
-    TrafficCone { translation -4  4 0  name "cone_inner_3" }
-    TrafficCone { translation -4 -4 0  name "cone_inner_4" }
-    TrafficCone { translation  4  0 0  name "cone_inner_5" }
-    TrafficCone { translation -4  0 0  name "cone_inner_6" }
-    TrafficCone { translation  0  4 0  name "cone_inner_7" }
-    TrafficCone { translation  0 -4 0  name "cone_inner_8" }
+    Shape {
+      appearance PBRAppearance { baseColor 0.6 0.55 0.5 roughness 0.95 metalness 0 }
+      geometry Box { size 4 4 0.8 }
+    }
   ]
+  boundingObject Box { size 4 4 0.8 }
 }
-DEF CONES_OUTER Group {
+DEF PLATFORM_2 Solid {
+  translation -10 12 0.4
+  name "platform_2"
   children [
-    TrafficCone { translation  9  9 0  name "cone_outer_1" }
-    TrafficCone { translation  9 -9 0  name "cone_outer_2" }
-    TrafficCone { translation -9  9 0  name "cone_outer_3" }
-    TrafficCone { translation -9 -9 0  name "cone_outer_4" }
-    TrafficCone { translation  9  0 0  name "cone_outer_5" }
-    TrafficCone { translation -9  0 0  name "cone_outer_6" }
-    TrafficCone { translation  0  9 0  name "cone_outer_7" }
-    TrafficCone { translation  0 -9 0  name "cone_outer_8" }
+    Shape {
+      appearance PBRAppearance { baseColor 0.6 0.55 0.5 roughness 0.95 metalness 0 }
+      geometry Box { size 4 4 0.8 }
+    }
   ]
+  boundingObject Box { size 4 4 0.8 }
 }
+DEF PLATFORM_3 Solid {
+  translation 0 -8 0.25
+  name "platform_3"
+  children [
+    Shape {
+      appearance PBRAppearance { baseColor 0.55 0.5 0.45 roughness 0.95 metalness 0 }
+      geometry Box { size 6 2 0.5 }
+    }
+  ]
+  boundingObject Box { size 6 2 0.5 }
+}
+
+# ============================================================
+# Pillars / lampposts (custom Solid with Cylinder) — sharp ICP features
+# ============================================================
+DEF PILLAR_1 Solid {
+  translation  6  6 2
+  name "pillar_1"
+  children [
+    Shape {
+      appearance PBRAppearance { baseColor 0.3 0.3 0.3 roughness 0.6 metalness 0.2 }
+      geometry Cylinder { height 4 radius 0.15 }
+    }
+  ]
+  boundingObject Cylinder { height 4 radius 0.15 }
+}
+DEF PILLAR_2 Solid {
+  translation -6  6 2  name "pillar_2"
+  children [ Shape { appearance PBRAppearance { baseColor 0.3 0.3 0.3 roughness 0.6 metalness 0.2 }
+                     geometry Cylinder { height 4 radius 0.15 } } ]
+  boundingObject Cylinder { height 4 radius 0.15 }
+}
+DEF PILLAR_3 Solid {
+  translation  6 -6 2  name "pillar_3"
+  children [ Shape { appearance PBRAppearance { baseColor 0.3 0.3 0.3 roughness 0.6 metalness 0.2 }
+                     geometry Cylinder { height 4 radius 0.15 } } ]
+  boundingObject Cylinder { height 4 radius 0.15 }
+}
+DEF PILLAR_4 Solid {
+  translation -6 -6 2  name "pillar_4"
+  children [ Shape { appearance PBRAppearance { baseColor 0.3 0.3 0.3 roughness 0.6 metalness 0.2 }
+                     geometry Cylinder { height 4 radius 0.15 } } ]
+  boundingObject Cylinder { height 4 radius 0.15 }
+}
+
+# ============================================================
+# Traffic cones, hydrants, benches, bins — short-range texture
+# ============================================================
+TrafficCone { translation  4  4 0  name "cone_i1" }
+TrafficCone { translation  4 -4 0  name "cone_i2" }
+TrafficCone { translation -4  4 0  name "cone_i3" }
+TrafficCone { translation -4 -4 0  name "cone_i4" }
+TrafficCone { translation  4  0 0  name "cone_i5" }
+TrafficCone { translation -4  0 0  name "cone_i6" }
+TrafficCone { translation  0  4 0  name "cone_i7" }
+TrafficCone { translation  0 -4 0  name "cone_i8" }
+TrafficCone { translation  9  9 0  name "cone_o1" }
+TrafficCone { translation  9 -9 0  name "cone_o2" }
+TrafficCone { translation -9  9 0  name "cone_o3" }
+TrafficCone { translation -9 -9 0  name "cone_o4" }
+TrafficCone { translation  9  0 0  name "cone_o5" }
+TrafficCone { translation -9  0 0  name "cone_o6" }
+TrafficCone { translation  0  9 0  name "cone_o7" }
+TrafficCone { translation  0 -9 0  name "cone_o8" }
+TrafficCone { translation 14  4 0  name "cone_e1" }
+TrafficCone { translation 14 -4 0  name "cone_e2" }
+TrafficCone { translation -14  4 0  name "cone_w1" }
+TrafficCone { translation -14 -4 0  name "cone_w2" }
 
 OilBarrel { translation  12 -8 0.5  name "barrel_1" }
 OilBarrel { translation -12 -8 0.5  name "barrel_2" }
 OilBarrel { translation  12  8 0.5  name "barrel_3" }
 OilBarrel { translation -12  8 0.5  name "barrel_4" }
 
-FireHydrant { translation  6 -12 0  name "hydrant_1" }
-FireHydrant { translation -6 -12 0  name "hydrant_2" }
+FireHydrant { translation  6 -14 0  name "hydrant_1" }
+FireHydrant { translation -6 -14 0  name "hydrant_2" }
+FireHydrant { translation  6  14 0  name "hydrant_3" }
+FireHydrant { translation -6  14 0  name "hydrant_4" }
+
+Bench { translation  3 -16 0  name "bench_1" }
+Bench { translation -3 -16 0  name "bench_2" }
+Bench { translation  3  16 0  name "bench_3" }
+Bench { translation -3  16 0  name "bench_4" }
+
+PublicBin { translation  10 -2 0  name "bin_1" }
+PublicBin { translation -10 -2 0  name "bin_2" }
+PublicBin { translation  10  2 0  name "bin_3" }
+PublicBin { translation -10  2 0  name "bin_4" }
+
+SquareManhole { translation  3 0 0  name "manhole_1" }
+SquareManhole { translation -3 0 0  name "manhole_2" }
+
+# Trees in alleys / corners
+Pine    { translation  20  20 0  name "tree_p1" }
+Pine    { translation -20  20 0  name "tree_p2" }
+Cypress { translation  24 -24 0  name "tree_c1" }
+Cypress { translation -24 -24 0  name "tree_c2" }
+Pine    { translation  30   0 0  name "tree_p3" }
+Pine    { translation -30   0 0  name "tree_p4" }
 
 Rove {
-  translation 0 -14 0.4
+  translation 0 -17 0.4
   rotation 0 0 1 1.5708
   name "rove"
 }
