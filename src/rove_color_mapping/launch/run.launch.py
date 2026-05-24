@@ -5,9 +5,10 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
+    use_sim_time = LaunchConfiguration('use_sim_time', default=False)
 
     # ── Livox Mid360 ───────────────────────────────────────────────────────────────
     livox_launch = IncludeLaunchDescription(
@@ -16,7 +17,7 @@ def generate_launch_description():
             'launch_ROS2',
             'msg_MID360_launch.py'
         )),
-        launch_arguments={'frame_id': 'livox_frame'}.items()
+        launch_arguments={'frame_id': 'livox_frame', 'use_sim_time': use_sim_time}.items()
     )
 
     # ── VectorNav VN300 ────────────────────────────────────────────────────────────
@@ -24,7 +25,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('vectornav_udp_bridge'),
             'launch', 'run.launch.py'
-        ))
+        )),
+        launch_arguments={'use_sim_time': use_sim_time}.items()
     )
 
     # ── Nav2 ───────────────────────────────────────────────────────────────────────
@@ -32,7 +34,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('rove_color_mapping'),
             'launch', 'nav.launch.py'
-        ))
+        )),
+        launch_arguments={'use_sim_time': use_sim_time}.items()
     )
 
     # ── Robot State Publisher (Test Rig)────────────────────────────────────────────
@@ -56,7 +59,8 @@ def generate_launch_description():
             get_package_share_directory('rove_description'),
             'launch',
             'launch.py'
-        ))
+        )),
+        launch_arguments={'use_sim_time': use_sim_time}.items()
     )
 
     # ── RTABMap ────────────────────────────────────────────────────────────────────
@@ -65,12 +69,13 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('rove_color_mapping'),
             'launch', 'rtabmap.launch.py'
-        ))
+        )),
+        launch_arguments={'use_sim_time': use_sim_time}.items()
     )
 
     return LaunchDescription([
-        livox_launch,
-        vectornav_launch,
+        # livox_launch,
+        # vectornav_launch,
         robot_state_publisher,
         rtabmap_lidar_launch,
         # nav2_launch

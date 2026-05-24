@@ -2,7 +2,7 @@ costmap/costmap:
   ros__parameters:
     update_frequency: 5.0
     publish_frequency: 2.0
-    transform_tolerance: 0.1
+    transform_tolerance: 0.05
     global_frame: new_map
     robot_base_frame: base_link
     robot_radius: 0.10

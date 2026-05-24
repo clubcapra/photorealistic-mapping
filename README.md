@@ -18,7 +18,7 @@ source install/setup.bash
 ```
 For subsequent builds:
 ```bash
-colcon build --symlink-install --packages-ignore livox-ros2-driver && source install/setup.bash
+colcon build --symlink-install --packages-ignore livox_ros_driver2 && source install/setup.bash
 ```
 or use alias ``rosbuild`` if on the jetson
 
@@ -34,7 +34,7 @@ To record a bag, use:
 rosbag record -a -O my_recording.bag
 ```
 
-To replay a bag to rebuild a rtabmap, use:
+To replay a bag to rebuild a rtabmap map, use:
 ```bash
 rosbag play my_recording.bag --topics \
   /livox/lidar \
@@ -50,8 +50,9 @@ rosbag play my_recording.bag --topics \
   /input_scan/deskewed \
   /gps/fix \
   /fix \
-  /tf \
-  /tf_static \
-  /joint_states \
-  /robot_description
+```
+
+And then in a seperate terminal run:
+```bash
+ros2 launch rove_color_mapping run.launch.py use_sim_time:=True
 ```
