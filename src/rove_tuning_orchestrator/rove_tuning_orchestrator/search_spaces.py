@@ -122,19 +122,21 @@ def build_refine_space(
     For each float/int param, the new bounds are best * (1 +/- half_width_frac);
     the param's `default` is set to the cumulative best so the orchestrator
     can enqueue it as stage E's trial 0 (guaranteed not worse than carryover).
-    Categorical params are pinned to their best value (no further search).
+
+    Categorical params are NOT included — they would be a single-choice
+    distribution, and resuming a study with a different "single choice"
+    (after re-running prior stages with different bests) crashes Optuna with
+    `CategoricalDistribution does not support dynamic value space`. The
+    categorical values from prior stages still carry forward via the
+    orchestrator's cumulative_best param dict; stage E just doesn't refine
+    them further.
     """
     params: List[ParamSpec] = []
     for stage_name, best_params in best_per_stage.items():
         for pname, value in best_params.items():
             if isinstance(value, bool) or isinstance(value, str):
-                choice = str(value).lower() if isinstance(value, bool) else str(value)
-                params.append(ParamSpec(
-                    name=pname, kind='categorical',
-                    choices=[choice],
-                    default=choice,
-                ))
-            elif isinstance(value, (int, float)):
+                continue  # categoricals: carryover-only, not tuned in stage E
+            if isinstance(value, (int, float)):
                 v = float(value)
                 half = abs(v) * half_width_frac if v != 0 else half_width_frac
                 low = max(0.0, v - half) if v >= 0 else v - half
@@ -147,7 +149,7 @@ def build_refine_space(
                 ))
     return SearchSpace(
         name='stage_e_joint_refine',
-        description='Narrow window around best from prior stages.',
+        description='Narrow window around best numeric params from prior stages.',
         params=params,
     )
 
