@@ -157,6 +157,15 @@ def _run_stage(
     )
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
+    # Seed: if every param has a default and the study is empty, enqueue
+    # a baseline trial before CMA-ES starts sampling. Guarantees each stage
+    # evaluates known-good values, so CMA-ES drift can't make stage B-E
+    # regress below stage A's locked-in carryover.
+    defaults = search_spaces.all_defaults(space)
+    if defaults is not None and not study.trials:
+        log.info(f'  enqueuing defaults trial: {defaults}')
+        study.enqueue_trial(defaults)
+
     def objective(trial: optuna.Trial) -> float:
         stage_params = space.suggest_all(trial)
         # Merge with carry-over best from earlier stages — those params are

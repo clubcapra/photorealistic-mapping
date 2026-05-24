@@ -1,34 +1,39 @@
 # Stage A — ICP core scan-matching geometry.
 # Single biggest lever for ICP odometry quality on sparse 16-layer lidars.
+# defaults are seeded from warehouse_v1/stage_a/trial_0018 (the only trial
+# from the first overnight run that actually produced a usable map —
+# drift_ratio 0.65%, ATE 0.099 m on a 7.18 m loop).
 name: stage_a_icp_core
 description: |
   ICP voxel size + iteration budget + correspondence radius. Tune these
   first — if scan matching is broken, nothing downstream matters.
 params:
-  # Voxel grid downsample applied to scans before ICP.
   Icp/VoxelSize:
     type: float
     low: 0.02
     high: 0.30
     log: true
+    default: 0.06
   Icp/MaxCorrespondenceDistance:
     type: float
     low: 0.05
     high: 1.0
     log: false
+    default: 0.347
   Icp/Iterations:
     type: int
     low: 10
     high: 100
-  # Inter-scan transformation limits — orchestrator-tuneable so sim can run
-  # under load without ICP rejecting jumps.
+    default: 19
   Icp/MaxTranslation:
     type: float
     low: 0.5
     high: 5.0
     log: false
+    default: 1.067
   Icp/MaxRotation:
     type: float
     low: 0.5
     high: 3.14
     log: false
+    default: 1.261

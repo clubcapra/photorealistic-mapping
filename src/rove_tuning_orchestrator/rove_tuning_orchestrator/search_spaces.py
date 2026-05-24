@@ -30,6 +30,10 @@ class ParamSpec:
     high: Optional[float] = None
     log: bool = False
     choices: List[str] = field(default_factory=list)
+    # Optional starting value. When present, the orchestrator enqueues a
+    # "trial 0" with all defaults BEFORE CMA-ES kicks in — guarantees each
+    # stage has at least one valid baseline regardless of sampler exploration.
+    default: Any = None
 
     def suggest(self, trial) -> Any:
         """Apply this spec to an Optuna trial."""
@@ -68,6 +72,14 @@ def load(path: Path) -> SearchSpace:
     params: List[ParamSpec] = []
     for pname, spec in (data.get('params') or {}).items():
         kind = spec.get('type', 'float')
+        default = spec.get('default')
+        if default is not None:
+            if kind == 'int':
+                default = int(float(default))
+            elif kind == 'float':
+                default = float(default)
+            else:
+                default = str(default)
         params.append(ParamSpec(
             name=pname,
             kind=kind,
@@ -75,12 +87,23 @@ def load(path: Path) -> SearchSpace:
             high=_coerce_bound(spec.get('high'), kind),
             log=bool(spec.get('log', False)),
             choices=[str(c) for c in spec.get('choices', [])],
+            default=default,
         ))
     return SearchSpace(
         name=data['name'],
         description=data.get('description', ''),
         params=params,
     )
+
+
+def all_defaults(space: 'SearchSpace') -> Optional[Dict[str, Any]]:
+    """If every param has a default, return {name: default}. Else None."""
+    out: Dict[str, Any] = {}
+    for p in space.params:
+        if p.default is None:
+            return None
+        out[p.name] = p.default
+    return out
 
 
 def load_from_package_share(filename: str) -> SearchSpace:

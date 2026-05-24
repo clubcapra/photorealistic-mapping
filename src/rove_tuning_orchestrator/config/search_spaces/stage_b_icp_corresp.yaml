@@ -1,6 +1,8 @@
 # Stage B — ICP correspondence + outlier rejection.
-# Run AFTER stage A converges. These tune how aggressively ICP rejects
-# bad matches, which trades off precision against tracking robustness.
+# Defaults are RTAB-Map's stock values (from rtabmap-source PointToPlaneK=5,
+# PointToPlaneRadius=0, CorrespondenceRatio=0.1, Strategy=1 (PCL),
+# Epsilon=0.0). These are guaranteed-functional baselines that CMA-ES
+# samples around.
 name: stage_b_icp_corresp
 description: |
   Point-to-plane K, normal radius, correspondence ratio threshold.
@@ -9,18 +11,23 @@ params:
     type: int
     low: 3
     high: 20
+    default: 5
   Icp/PointToPlaneRadius:
     type: float
     low: 0.0
     high: 1.0
+    default: 0.0
   Icp/CorrespondenceRatio:
     type: float
     low: 0.05
     high: 0.50
+    default: 0.1
   Icp/Strategy:
     type: categorical
-    choices: ['0', '1']  # 0 = libpointmatcher, 1 = PCL
+    choices: ['0', '1']
+    default: '1'
   Icp/Epsilon:
     type: float
     low: 0.0
     high: 0.01
+    default: 0.005

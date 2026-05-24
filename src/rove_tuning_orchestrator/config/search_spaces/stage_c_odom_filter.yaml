@@ -1,31 +1,41 @@
 # Stage C — odometry guess + filtering.
-# How ICP odometry uses IMU/wheel guesses and filters its output.
-# Critical for tracking continuity on jerky platforms (tracked rovers).
+# Defaults: Odom/Strategy=1 (Frame-to-Frame, robust for ICP-only), KeyFrameThr=0.6
+# (rtabmap default), GuessMotion=true (use prior motion), Reg/Force3DoF=true for
+# ground robots (lock Z/roll/pitch — the tuner's playbook found this helps),
+# Force4DoF=false (don't combine with 3DoF), FilteringStrategy=0 (none —
+# Kalman is fragile without good IMU init), KalmanProcessNoise=0.001.
 name: stage_c_odom_filter
 description: |
   Key frame thresholds, guess strategies, IMU initialisation.
 params:
   Odom/Strategy:
     type: categorical
-    choices: ['0', '1', '2']  # 0=Frame-to-Map, 1=Frame-to-Frame, 2=ICP
+    choices: ['0', '1', '2']
+    default: '1'
   Odom/KeyFrameThr:
     type: float
     low: 0.0
     high: 0.95
+    default: 0.6
   Odom/GuessMotion:
     type: categorical
     choices: ['true', 'false']
+    default: 'true'
   Reg/Force3DoF:
     type: categorical
     choices: ['true', 'false']
+    default: 'true'
   Reg/Force4DoF:
     type: categorical
     choices: ['true', 'false']
+    default: 'false'
   Odom/FilteringStrategy:
     type: categorical
-    choices: ['0', '1']  # 0=none, 1=Kalman
+    choices: ['0', '1']
+    default: '0'
   Odom/KalmanProcessNoise:
     type: float
-    low: 1e-4
-    high: 1e-1
+    low: 1.0e-4
+    high: 1.0e-1
     log: true
+    default: 1.0e-3
