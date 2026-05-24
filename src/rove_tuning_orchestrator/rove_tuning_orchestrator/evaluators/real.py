@@ -148,21 +148,21 @@ class RealEvaluator(Evaluator):
                 v = 'true' if v else 'false'
             param_args.extend([f'--{k}', str(v)])
 
+        # NOTE: we deliberately avoid rtabmap_launch.launch.py because its
+        # subscribe_rgbd:=false arg does NOT prevent the rtabmap node from
+        # exact-sync subscribing to camera/depth/rgb topics — same gotcha
+        # the tuner has. Instead we use our own launcher
+        # (rtabmap_lidar3d.launch.py) which directly invokes the two nodes
+        # with subscribe_rgbd=False on the params, which works.
+        extra_args = ' '.join(param_args)
         rtabmap_cmd = [
-            'ros2', 'launch', 'rtabmap_launch', 'rtabmap.launch.py',
+            'ros2', 'launch', 'rove_sim_webots', 'rtabmap_lidar3d.launch.py',
             f'frame_id:={cfg.frame_id}',
-            f'scan_cloud_topic:={cfg.lidar_topic}',
+            f'lidar_topic:={cfg.lidar_topic}',
             f'imu_topic:={cfg.imu_topic}',
-            'subscribe_scan_cloud:=true',
-            'subscribe_rgbd:=false',
-            'subscribe_depth:=false',
-            'subscribe_rgb:=false',
-            'icp_odometry:=true',
             'use_sim_time:=true',
             f'database_path:={db_path}',
-            'rviz:=false',
-            'rtabmap_viz:=false',
-            'args:=' + ' '.join(param_args) if param_args else 'args:=',
+            f'rtabmap_args:={extra_args}',
         ]
         rtabmap_log = bag_out / 'rtabmap.log'
         rtabmap_proc = subprocess.Popen(
