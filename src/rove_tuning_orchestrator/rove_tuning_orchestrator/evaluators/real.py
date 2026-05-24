@@ -174,25 +174,30 @@ class RealEvaluator(Evaluator):
         time.sleep(cfg.warmup_s)
 
         # Play the bag.
+        # NOTE: ROS 2 Humble's `ros2 bag play` does NOT support
+        # --playback-duration (added in Jazzy/Iron). We instead launch with
+        # Popen and kill after max_bag_duration_s ourselves.
         bag_log = bag_out / 'bag_play.log'
         bag_play_cmd = [
             'ros2', 'bag', 'play', str(bag),
             '--clock',
             '--topics', cfg.lidar_topic, cfg.imu_topic, '/tf', '/tf_static',
         ]
-        if cfg.max_bag_duration_s:
-            bag_play_cmd.extend(['--playback-duration', str(cfg.max_bag_duration_s)])
-
+        bag_proc = subprocess.Popen(
+            bag_play_cmd, env=env,
+            stdout=open(bag_log, 'wb'), stderr=subprocess.STDOUT,
+            preexec_fn=os.setsid,
+        )
+        deadline_s = cfg.max_bag_duration_s or cfg.timeout_s
         try:
-            with open(bag_log, 'wb') as bf:
-                subprocess.run(
-                    bag_play_cmd, env=env, stdout=bf,
-                    stderr=subprocess.STDOUT,
-                    timeout=cfg.timeout_s, check=False,
-                )
+            bag_proc.wait(timeout=deadline_s)
         except subprocess.TimeoutExpired:
-            _kill_group(rtabmap_proc)
-            raise _RealEvalFailure(f'bag play timed out at {cfg.timeout_s}s')
+            # Expected when max_bag_duration_s caps the run; not an error.
+            _kill_group(bag_proc, timeout=10)
+        except Exception:
+            _kill_group(bag_proc, timeout=10)
+            _kill_group(rtabmap_proc, timeout=10)
+            raise
 
         time.sleep(cfg.drain_s)
         _kill_group(rtabmap_proc)

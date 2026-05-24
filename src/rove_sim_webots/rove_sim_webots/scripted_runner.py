@@ -43,22 +43,27 @@ def _build_env(domain_id: int, headless: bool = False) -> dict:
     env['ROS_DOMAIN_ID'] = str(domain_id)
     if headless:
         env['WEBOTS_GUI'] = 'false'
+        # Force a clean isolated display via xvfb-run regardless of the real
+        # $DISPLAY — keeps Webots from popping a "No Rendering" window on the
+        # user's actual desktop during autonomous runs.
+        env.pop('DISPLAY', None)
+        env.pop('WAYLAND_DISPLAY', None)
     return env
 
 
 def _wrap_for_headless(cmd: List[str], headless: bool) -> List[str]:
-    """If headless and no DISPLAY is set, prepend xvfb-run."""
+    """In headless mode, always prepend xvfb-run for a clean isolated display.
+
+    Previously this only wrapped when $DISPLAY was unset, which meant runs
+    on workstations with a real X server would pop a Webots window. The new
+    behaviour ALWAYS wraps when headless=True so no GUI ever appears.
+    """
     if not headless:
-        return cmd
-    if os.environ.get('DISPLAY'):
-        # A display is already available (e.g. real X server, VNC, or a parent
-        # xvfb-run). Webots will use it; --no-rendering still applies.
         return cmd
     if shutil.which('xvfb-run') is None:
         raise SystemExit(
-            'Headless mode requested but xvfb-run is not on PATH and no DISPLAY '
-            'is set. Install xvfb (apt install xvfb) or run inside an existing '
-            'X session.'
+            'Headless mode requested but xvfb-run is not on PATH. '
+            'Install xvfb (apt install xvfb).'
         )
     return ['xvfb-run', '-a', '--server-args=-screen 0 1024x768x24', *cmd]
 
