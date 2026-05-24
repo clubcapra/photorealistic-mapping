@@ -1,0 +1,103 @@
+#VRML_SIM R2023b utf8
+# Indoor world — large industrial warehouse.
+# 40x40m arena. Pallet/box stacks and pipework form aisles that constrain
+# motion + give RTAB-Map plenty of vertical planar features. Conveyor belts
+# and a large valve provide distinct landmarks for loop closure.
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/CardboardBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/WoodenBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/PlasticCrate.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/conveyors/protos/ConveyorBelt.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/pipes/protos/PipeSection.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/valves/protos/LargeValve.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/fire_extinguisher/protos/FireExtinguisher.proto"
+EXTERNPROTO "../protos/Rove.proto"
+
+WorldInfo {
+  basicTimeStep 16
+  coordinateSystem "ENU"
+}
+Viewpoint {
+  orientation -0.2 0.2 0.96 1.2
+  position 15 -12 12
+  follow "rove"
+}
+TexturedBackground { }
+TexturedBackgroundLight { }
+
+RectangleArena {
+  translation 0 0 0
+  floorSize 40 40
+  floorTileSize 2 2
+  wallHeight 4.0
+}
+
+# Two interior partitions to create aisles + force revisits.
+Wall { translation  6 0 0  size 0.3 24 3.5  name "partition_east" }
+Wall { translation -6 0 0  size 0.3 24 3.5  name "partition_west" }
+
+# West-aisle: stacks of crates and cardboard boxes.
+DEF WEST_STACKS Group {
+  children [
+    CardboardBox { translation -10  10 0.3  size 1 1 0.6  name "cb_w1" }
+    CardboardBox { translation -10  10 0.9  size 1 1 0.6  name "cb_w2" }
+    CardboardBox { translation -10   6 0.3  size 1.2 0.8 0.7  name "cb_w3" }
+    CardboardBox { translation -10   2 0.3  size 1 1 0.6  name "cb_w4" }
+    CardboardBox { translation -10  -2 0.3  size 1.0 1.0 0.9  name "cb_w5" }
+    CardboardBox { translation -10  -6 0.3  size 1 1 0.6  name "cb_w6" }
+    CardboardBox { translation -10 -10 0.3  size 1 1 0.6  name "cb_w7" }
+    WoodenBox    { translation -14   8 0.3  name "wb_w1" }
+    WoodenBox    { translation -14   4 0.3  name "wb_w2" }
+    WoodenBox    { translation -14   0 0.3  name "wb_w3" }
+    WoodenBox    { translation -14  -4 0.3  name "wb_w4" }
+    WoodenBox    { translation -14  -8 0.3  name "wb_w5" }
+    PlasticCrate { translation -16  10 0    name "pc_w1" }
+    PlasticCrate { translation -16  -10 0   name "pc_w2" }
+  ]
+}
+
+# East-aisle: pipework + conveyor + valves.
+DEF EAST_FIXTURES Group {
+  children [
+    ConveyorBelt {
+      translation 10 0 0
+      rotation 0 0 1 1.5708
+      size 16 1 0.8
+      name "conveyor_1"
+    }
+    ConveyorBelt {
+      translation 14 -6 0
+      rotation 0 0 1 1.5708
+      size 8 1 0.8
+      name "conveyor_2"
+    }
+    PipeSection { translation 16  10 0.5  name "pipe_1" }
+    PipeSection { translation 16   4 0.5  name "pipe_2" }
+    PipeSection { translation 16  -4 0.5  name "pipe_3" }
+    PipeSection { translation 16 -10 0.5  name "pipe_4" }
+    LargeValve  { translation 14   0 1.0  name "valve_1" }
+  ]
+}
+
+# Centre alley: scattered boxes + safety equipment.
+CardboardBox { translation 0  8 0.3  size 0.8 0.8 0.6  name "cb_c1" }
+CardboardBox { translation 0  3 0.3  size 1 0.6 0.6   name "cb_c2" }
+CardboardBox { translation 0 -3 0.3  size 0.8 1 0.6   name "cb_c3" }
+CardboardBox { translation 0 -8 0.3  size 1 1 0.5     name "cb_c4" }
+WoodenBox    { translation 2  12 0.3  name "wb_c1" }
+WoodenBox    { translation -2 -12 0.3 name "wb_c2" }
+
+FireExtinguisher { translation  5.5 -18 0.7  name "fire_ext_1" }
+FireExtinguisher { translation -5.5 -18 0.7  name "fire_ext_2" }
+FireExtinguisher { translation  5.5  18 0.7  name "fire_ext_3" }
+FireExtinguisher { translation -5.5  18 0.7  name "fire_ext_4" }
+
+Rove {
+  translation 0 -15 0.4
+  rotation 0 0 1 1.5708
+  name "rove"
+}

@@ -3,8 +3,8 @@
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/walls/protos/Wall.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/WoodenPalletStack.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/WoodenBox.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/CardboardBox.proto"
 EXTERNPROTO "../protos/Rove.proto"
 
@@ -34,12 +34,12 @@ Wall { translation  0  6 0  size 6 0.2 2.5  name "wall_3" }
 Wall { translation  0 -6 0  size 6 0.2 2.5  name "wall_4" }
 
 # Visual texture for feature matching
-WoodenPalletStack { translation  6 -8 0 }
-WoodenPalletStack { translation -6  8 0 }
-CardboardBox     { translation  2  2 0.3 }
-CardboardBox     { translation -2 -2 0.3 }
-CardboardBox     { translation  4 -1 0.3 }
-CardboardBox     { translation -4  1 0.3 }
+WoodenBox    { translation  6 -8 0.3  name "wb_1" }
+WoodenBox    { translation -6  8 0.3  name "wb_2" }
+CardboardBox { translation  2  2 0.3  name "cb_1" }
+CardboardBox { translation -2 -2 0.3  name "cb_2" }
+CardboardBox { translation  4 -1 0.3  name "cb_3" }
+CardboardBox { translation -4  1 0.3  name "cb_4" }
 
 Rove {
   translation -7 -7 0.3

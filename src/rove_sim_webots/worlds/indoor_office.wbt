@@ -1,0 +1,101 @@
+#VRML_SIM R2023b utf8
+# Indoor world — office with corridor + 4 rooms.
+# 20x20m arena partitioned into corridor + four enclosed rooms accessible
+# through doorways. Tight passages, repeated furniture (desks/chairs in
+# every room) — adversarial for SLAM perceptual aliasing, ideal for testing
+# loop closure rejection.
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/apartment_structure/protos/Wall.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Desk.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/tables/protos/Table.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/chairs/protos/OfficeChair.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/cabinet/protos/Cabinet.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/containers/protos/CardboardBox.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/factory/fire_extinguisher/protos/FireExtinguisher.proto"
+EXTERNPROTO "../protos/Rove.proto"
+
+WorldInfo {
+  basicTimeStep 16
+  coordinateSystem "ENU"
+}
+Viewpoint {
+  orientation -0.15 0.15 0.98 1.0
+  position 8 -8 9
+  follow "rove"
+}
+TexturedBackground { }
+TexturedBackgroundLight { }
+
+RectangleArena {
+  translation 0 0 0
+  floorSize 20 20
+  floorTileSize 1 1
+  wallHeight 2.5
+}
+
+# ===== Wall layout =====
+# Vertical corridor down the middle (X = ±1.5), four rooms at corners.
+#   NW room  | corridor |  NE room
+#   ---------|----------|----------
+#   SW room  |          |  SE room
+# Doorways are gaps in the partition walls.
+
+# Horizontal cross-wall, split with two doorway gaps centred on the corridor.
+Wall { translation -5.25 0 0  size 4.5 0.2 2.4  name "wall_h_w" }
+Wall { translation  5.25 0 0  size 4.5 0.2 2.4  name "wall_h_e" }
+
+# Vertical corridor walls (with doorways into each room).
+# West corridor wall: gaps at y = ±5 for the NW/SW rooms.
+Wall { translation -1.5  7   0  size 0.2 4 2.4  name "wall_v_w_n" }
+Wall { translation -1.5  0.5 0  size 0.2 5 2.4  name "wall_v_w_c" }
+Wall { translation -1.5 -7   0  size 0.2 4 2.4  name "wall_v_w_s" }
+
+# East corridor wall: gaps at y = ±5 for the NE/SE rooms.
+Wall { translation  1.5  7   0  size 0.2 4 2.4  name "wall_v_e_n" }
+Wall { translation  1.5  0.5 0  size 0.2 5 2.4  name "wall_v_e_c" }
+Wall { translation  1.5 -7   0  size 0.2 4 2.4  name "wall_v_e_s" }
+
+# ===== NW room (workstations) =====
+Desk        { translation -6 6 0  rotation 0 0 1 1.5708  name "desk_nw_1" }
+OfficeChair { translation -5 6 0  rotation 0 0 1 -1.5708 name "chair_nw_1" }
+Desk        { translation -6 3 0  rotation 0 0 1 1.5708  name "desk_nw_2" }
+OfficeChair { translation -5 3 0  rotation 0 0 1 -1.5708 name "chair_nw_2" }
+Cabinet     { translation -8 7.5 0  name "cabinet_nw" }
+
+# ===== NE room (meeting room) =====
+Table       { translation 5 5 0  rotation 0 0 1 0  name "table_ne" }
+OfficeChair { translation 4 6 0  rotation 0 0 1  3.14  name "chair_ne_1" }
+OfficeChair { translation 4 4 0  rotation 0 0 1  3.14  name "chair_ne_2" }
+OfficeChair { translation 6 6 0  rotation 0 0 1  0     name "chair_ne_3" }
+OfficeChair { translation 6 4 0  rotation 0 0 1  0     name "chair_ne_4" }
+OfficeChair { translation 5 7 0  rotation 0 0 1  -1.5708  name "chair_ne_5" }
+Cabinet     { translation 8 7.5 0  name "cabinet_ne" }
+
+# ===== SW room (storage) =====
+Cabinet      { translation -8 -7.5 0  name "cabinet_sw_1" }
+Cabinet      { translation -5 -7.5 0  name "cabinet_sw_2" }
+CardboardBox { translation -7 -4 0.3  size 1 1 0.6  name "cb_sw_1" }
+CardboardBox { translation -7 -4 0.9  size 1 1 0.6  name "cb_sw_2" }
+CardboardBox { translation -4 -4 0.3  size 0.8 0.8 0.5  name "cb_sw_3" }
+CardboardBox { translation -4 -6 0.3  size 1 1 0.6  name "cb_sw_4" }
+
+# ===== SE room (workstations) =====
+Desk        { translation 5 -3 0  rotation 0 0 1 -1.5708  name "desk_se_1" }
+OfficeChair { translation 5 -4 0  rotation 0 0 1 1.5708   name "chair_se_1" }
+Desk        { translation 7 -3 0  rotation 0 0 1 -1.5708  name "desk_se_2" }
+OfficeChair { translation 7 -4 0  rotation 0 0 1 1.5708   name "chair_se_2" }
+Desk        { translation 5 -6 0  rotation 0 0 1 -1.5708  name "desk_se_3" }
+OfficeChair { translation 5 -7 0  rotation 0 0 1 1.5708   name "chair_se_3" }
+
+# Safety + corridor furniture
+FireExtinguisher { translation  0 -9 0.7  name "fire_ext_1" }
+FireExtinguisher { translation  0  9 0.7  name "fire_ext_2" }
+
+Rove {
+  translation 0 -8.5 0.4
+  rotation 0 0 1 1.5708
+  name "rove"
+}

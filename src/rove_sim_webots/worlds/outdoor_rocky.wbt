@@ -1,0 +1,84 @@
+#VRML_SIM R2023b utf8
+# Outdoor world — rocky / quarry terrain.
+# Distinct from outdoor_terrain.wbt: rougher ground (5 perlin octaves), dense
+# rock scatter for ICP feature density, sparse pines for long-range landmark
+# anchoring. Good for stress-testing ICP odometry on uneven ground.
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/UnevenTerrain.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/rocks/protos/Rock.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/obstacles/protos/OilBarrel.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/trees/protos/Pine.proto"
+EXTERNPROTO "../protos/Rove.proto"
+
+WorldInfo {
+  basicTimeStep 16
+  coordinateSystem "ENU"
+  contactProperties [
+    ContactProperties { coulombFriction [ 1.4 ] softCFM 0.0001 }
+  ]
+}
+Viewpoint {
+  orientation -0.3 0.3 0.9 1.5
+  position 14 -10 8
+  follow "rove"
+}
+TexturedBackground { texture "noon_cloudy_countryside" }
+TexturedBackgroundLight { texture "noon_cloudy_countryside" }
+
+UnevenTerrain {
+  translation 0 0 0
+  size 60 60 2.0
+  xDimension 96
+  yDimension 96
+  appearance PBRAppearance {
+    baseColor 0.5 0.45 0.35
+    roughness 1.0
+    metalness 0
+  }
+  randomSeed 42
+  perlinNOctaves 5
+}
+
+# Rock scatter — varied sizes via the Rock proto's scale field.
+# Names are unique to avoid Webots "sibling name" warnings.
+Rock { translation  3.5  2.2 0.8  scale 1.5  name "rock_a1" }
+Rock { translation -4.0  3.8 0.8  scale 1.5  name "rock_a2" }
+Rock { translation  6.1 -3.5 0.8  scale 1.8  name "rock_a3" }
+Rock { translation -6.5 -2.0 0.8  scale 1.2  name "rock_a4" }
+Rock { translation  8.5  5.0 0.8  scale 2.0  name "rock_a5" }
+Rock { translation -9.0  4.0 0.8  scale 1.6  name "rock_a6" }
+Rock { translation  2.0 -8.0 0.8  scale 1.4  name "rock_a7" }
+Rock { translation -3.0 -8.5 0.8  scale 1.7  name "rock_a8" }
+Rock { translation  1.8  3.3 0.7  scale 0.8  name "rock_b1" }
+Rock { translation -2.5  4.5 0.7  scale 0.6  name "rock_b2" }
+Rock { translation  4.5 -2.0 0.7  scale 0.7  name "rock_b3" }
+Rock { translation -5.0 -1.0 0.7  scale 0.9  name "rock_b4" }
+Rock { translation  7.0  1.8 0.7  scale 0.8  name "rock_b5" }
+Rock { translation -7.5  2.0 0.7  scale 0.7  name "rock_b6" }
+Rock { translation  4.5  6.5 0.7  scale 0.6  name "rock_b7" }
+Rock { translation -4.5  7.5 0.7  scale 0.9  name "rock_b8" }
+Rock { translation  6.0 -7.0 0.7  scale 0.8  name "rock_b9" }
+Rock { translation -6.0 -6.5 0.7  scale 0.7  name "rock_b10" }
+Rock { translation 10.0  0.0 0.8  scale 2.2  type "flat" name "boulder_1" }
+Rock { translation -10.0 0.0 0.8  scale 2.0  type "flat" name "boulder_2" }
+Rock { translation  0.0 10.0 0.8  scale 2.4  type "flat" name "boulder_3" }
+Rock { translation  0.0 -10.0 0.8 scale 2.1  type "flat" name "boulder_4" }
+
+# A few oil barrels (industrial debris feel).
+OilBarrel { translation -10 -10 0.5  name "barrel_1" }
+OilBarrel { translation  10 -10 0.5  name "barrel_2" }
+OilBarrel { translation -10  10 0.5  name "barrel_3" }
+
+# Sparse pines anchoring the corners as long-range landmarks.
+Pine { translation  13  13 0   name "pine_1" }
+Pine { translation -13  13 0   name "pine_2" }
+Pine { translation  13 -13 0   name "pine_3" }
+Pine { translation -13 -13 0   name "pine_4" }
+
+Rove {
+  translation 0 0 1.5
+  rotation 0 0 1 0.5
+  name "rove"
+}
