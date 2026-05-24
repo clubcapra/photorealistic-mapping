@@ -1,0 +1,8 @@
+name: slow_short
+description: |
+  Very slow + short straight line. Used to verify the validation pipeline
+  works end-to-end when ICP can actually track (small inter-scan motion).
+  Not meant for SLAM quality benchmarking — just a sanity-check trajectory.
+segments:
+  - { dt: 10.0, v: 0.1,  w: 0.0 }   # 1 m forward at 0.1 m/s
+  - { dt: 2.0,  v: 0.0,  w: 0.0 }

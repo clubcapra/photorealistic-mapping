@@ -1,0 +1,13 @@
+name: outdoor_loop1
+description: |
+  ~10 m square loop. Returns to start so RTAB-Map can fire a loop closure.
+  Total runtime: ~40 s.
+segments:
+  - { dt: 8.0,  v: 0.5,  w: 0.0 }   # forward leg 1 (~4 m)
+  - { dt: 1.57, v: 0.0,  w: 1.0 }   # turn left 90 deg
+  - { dt: 8.0,  v: 0.5,  w: 0.0 }   # forward leg 2
+  - { dt: 1.57, v: 0.0,  w: 1.0 }
+  - { dt: 8.0,  v: 0.5,  w: 0.0 }   # forward leg 3
+  - { dt: 1.57, v: 0.0,  w: 1.0 }
+  - { dt: 8.0,  v: 0.5,  w: 0.0 }   # forward leg 4 — back to start
+  - { dt: 2.0,  v: 0.0,  w: 0.0 }   # settle for loop closure

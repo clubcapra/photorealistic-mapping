@@ -1,0 +1,13 @@
+name: figure_eight
+description: |
+  Figure-8 trajectory — two opposite loops, useful for testing
+  loop-closure on a self-intersecting path. ~45 s.
+segments:
+  - { dt: 6.0,  v: 0.4,  w:  0.4 }   # gentle right loop
+  - { dt: 6.0,  v: 0.4,  w:  0.4 }
+  - { dt: 6.0,  v: 0.4,  w:  0.4 }
+  - { dt: 6.0,  v: 0.4,  w: -0.4 }   # gentle left loop (flip direction)
+  - { dt: 6.0,  v: 0.4,  w: -0.4 }
+  - { dt: 6.0,  v: 0.4,  w: -0.4 }
+  - { dt: 6.0,  v: 0.4,  w:  0.0 }   # short straight
+  - { dt: 2.0,  v: 0.0,  w:  0.0 }

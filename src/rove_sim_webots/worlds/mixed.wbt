@@ -1,0 +1,59 @@
+#VRML_SIM R2023b utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/UnevenTerrain.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/walls/protos/Wall.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/buildings/protos/SimpleBuilding.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/trees/protos/PalmTree.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/obstacles/protos/OilBarrel.proto"
+EXTERNPROTO "../protos/Rove.proto"
+
+WorldInfo {
+  basicTimeStep 16
+  coordinateSystem "ENU"
+}
+Viewpoint {
+  orientation -0.3 0.3 0.9 1.5
+  position 15 -10 8
+  follow "rove"
+}
+TexturedBackground { }
+TexturedBackgroundLight { }
+
+# Outdoor area (large gentle terrain)
+UnevenTerrain {
+  translation 0 0 0
+  size 60 60 0.3
+  xDimension 48
+  yDimension 48
+  randomSeed 7
+  perlinNOctaves 3
+}
+
+# Building (provides indoor structure on the +X side)
+SimpleBuilding {
+  translation 15 0 0
+  rotation 0 0 1 1.5708
+  floorNumber 1
+  floorHeight 3
+  startingFloor 0
+}
+
+# Outdoor feature scatter
+PalmTree  { translation -10 -10 0 }
+PalmTree  { translation -12  8 0 }
+OilBarrel { translation -5 -3 0.5 }
+OilBarrel { translation  3  5 0.5 }
+OilBarrel { translation  0 -7 0.5 }
+
+# A small fenced area to traverse
+Wall { translation -8 0 0 size 0.2 6 1.5 name "fence_1" }
+Wall { translation -5 3 0 size 6 0.2 1.5 name "fence_2" }
+Wall { translation -5 -3 0 size 6 0.2 1.5 name "fence_3" }
+
+Rove {
+  translation 0 0 0.5
+  rotation 0 0 1 0
+  name "rove"
+}

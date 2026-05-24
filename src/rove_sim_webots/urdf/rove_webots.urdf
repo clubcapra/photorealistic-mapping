@@ -1,0 +1,97 @@
+<?xml version="1.0" ?>
+<!--
+  URDF consumed by webots_ros2_driver to expose Rove's Webots devices as ROS 2 topics.
+  Device 'reference' values must match the Webots device names in protos/Rove.proto.
+
+  Topic contract matches rove_rtabmap_tuner expectations:
+    /livox/lidar  (sensor_msgs/PointCloud2, frame livox_frame, ~10 Hz)
+    /livox/imu    (sensor_msgs/Imu,  composed by Ros2IMU plugin, frame livox_frame)
+    /rove/camera/image_raw  (sensor_msgs/Image, optional for RGB-D experiments)
+    /odom + tf odom -> base_link  (published by RoveDriver from cmd_vel-derived pose)
+-->
+<robot name="rove">
+
+  <webots>
+
+    <device reference="rove_lidar" type="Lidar">
+      <ros>
+        <topicName>/livox/lidar</topicName>
+        <alwaysOn>true</alwaysOn>
+        <enabled>true</enabled>
+        <updateRate>10</updateRate>
+        <frameName>livox_frame</frameName>
+      </ros>
+    </device>
+
+    <device reference="rove_camera" type="Camera">
+      <ros>
+        <topicName>/rove/camera/image_raw</topicName>
+        <alwaysOn>false</alwaysOn>
+        <enabled>true</enabled>
+        <updateRate>15</updateRate>
+        <frameName>camera_link</frameName>
+      </ros>
+    </device>
+
+    <device reference="rove_gps" type="GPS">
+      <ros>
+        <topicName>/rove/gps</topicName>
+        <alwaysOn>true</alwaysOn>
+        <updateRate>5</updateRate>
+        <frameName>base_link</frameName>
+      </ros>
+    </device>
+
+    <!-- Standard IMU plugin composes /livox/imu from InertialUnit + Accel + Gyro. -->
+    <plugin type="webots_ros2_driver::Ros2IMU">
+      <enabled>true</enabled>
+      <updateRate>200</updateRate>
+      <topicName>/livox/imu</topicName>
+      <alwaysOn>true</alwaysOn>
+      <frameName>livox_frame</frameName>
+      <inertialUnitName>rove_imu</inertialUnitName>
+      <gyroName>rove_gyro</gyroName>
+      <accelerometerName>rove_accel</accelerometerName>
+    </plugin>
+
+    <!--
+      Custom plugin: cmd_vel -> 4-wheel skid-steer motor commands,
+      publishes wheel-derived nav_msgs/Odometry on /odom,
+      broadcasts tf odom -> base_link and static base_link -> livox_frame / camera_link.
+    -->
+    <plugin type="rove_sim_webots.rove_driver.RoveDriver">
+      <!-- webots_ros2_driver passes child elements to the plugin's init() as
+           {tag_name: text_content}. NOT <param name="..."> like ros2_control. -->
+      <cmd_vel_topic>/cmd_vel</cmd_vel_topic>
+      <odom_topic>/odom</odom_topic>
+      <wheel_base>0.63</wheel_base>
+      <wheel_radius>0.12</wheel_radius>
+      <lidar_frame>livox_frame</lidar_frame>
+      <base_frame>base_link</base_frame>
+      <odom_frame>odom</odom_frame>
+      <camera_frame>camera_link</camera_frame>
+      <publish_static_tf>true</publish_static_tf>
+      <publish_ground_truth>true</publish_ground_truth>
+      <ground_truth_topic>/ground_truth/odom</ground_truth_topic>
+      <world_frame>world</world_frame>
+    </plugin>
+  </webots>
+
+  <!-- Frames so TF consumers / rviz / rtabmap can resolve them. -->
+  <link name="base_link"/>
+
+  <link name="livox_frame"/>
+  <joint name="livox_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="livox_frame"/>
+    <origin xyz="-0.3 0 0.28" rpy="0 0.5236 3.14159"/>
+  </joint>
+
+  <link name="camera_link"/>
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="-0.4 0 0.15" rpy="0 0 3.14159"/>
+  </joint>
+
+</robot>

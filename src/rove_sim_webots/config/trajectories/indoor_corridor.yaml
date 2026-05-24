@@ -1,0 +1,17 @@
+name: indoor_corridor
+description: |
+  Drive forward in the 20x20 m arena, weave around the interior walls,
+  return roughly to start for loop closure. ~50 s.
+segments:
+  - { dt: 6.0,  v: 0.4,  w: 0.0 }
+  - { dt: 1.57, v: 0.0,  w: 1.0 }
+  - { dt: 5.0,  v: 0.4,  w: 0.0 }
+  - { dt: 1.57, v: 0.0,  w: -1.0 }
+  - { dt: 6.0,  v: 0.4,  w: 0.0 }
+  - { dt: 1.57, v: 0.0,  w: -1.0 }
+  - { dt: 5.0,  v: 0.4,  w: 0.0 }
+  - { dt: 1.57, v: 0.0,  w: 1.0 }
+  - { dt: 8.0,  v: 0.4,  w: 0.0 }   # heading roughly back to start
+  - { dt: 3.14, v: 0.0,  w: 1.0 }   # 180 deg
+  - { dt: 8.0,  v: 0.4,  w: 0.0 }   # back over the start area
+  - { dt: 2.0,  v: 0.0,  w: 0.0 }

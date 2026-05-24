@@ -1,0 +1,217 @@
+#VRML_SIM R2023b utf8
+# Rove rover proto for the photorealistic-mapping Webots simulation.
+#
+# Approximates the real Rove platform:
+#   - tracks_separation: 0.63 m (from rove_description/gazebo.urdf.xacro)
+#   - tracks_height:     0.18 m
+#   - Sensors placed to match rove_description/urdf/sensor.urdf.xacro:
+#       * IMU at (-0.05, -0.15, 0.09) from base_link
+#       * Camera at (-0.4, 0, 0.15)  facing -X (rotated pi about Z)
+#       * Livox at (-0.3, 0, 0.28)  pitched +30 deg, rotated pi about Z
+#
+# Locomotion is approximated as 4-wheel skid-steer (not modeled tracks) — fine for
+# SLAM data generation since RTAB-Map cares about LiDAR/IMU/odom, not track physics.
+
+PROTO Rove [
+  field SFVec3f    translation     0 0 0.2
+  field SFRotation rotation        0 0 1 0
+  field SFString   name            "rove"
+  field SFString   controller      "<extern>"
+  field MFString   controllerArgs  []
+  field SFBool     supervisor      TRUE
+  # Override these to swap sensor specs without editing the proto.
+  field SFFloat    lidarFreq       10
+  field SFInt32    lidarHorizontal 1800
+  field SFInt32    lidarVerticalLayers 16
+  field SFFloat    lidarMaxRange   130
+  field SFInt32    cameraWidth     640
+  field SFInt32    cameraHeight    480
+]
+{
+  Robot {
+    translation IS translation
+    rotation    IS rotation
+    name        IS name
+    controller  IS controller
+    controllerArgs IS controllerArgs
+    supervisor  IS supervisor
+    children [
+      # ---- Base body ----
+      DEF BODY Pose {
+        translation 0 0 0
+        children [
+          Shape {
+            appearance PBRAppearance {
+              baseColor 0.4 0.4 0.45
+              roughness 0.7
+              metalness 0.1
+            }
+            geometry Box { size 0.7 0.5 0.18 }
+          }
+        ]
+      }
+
+      # ---- Wheels (4) for skid-steer ----
+      DEF WHEEL_FL HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0 1 0
+          anchor 0.22 0.315 -0.05
+        }
+        device [
+          RotationalMotor { name "left_front_motor"  maxVelocity 10 maxTorque 50 }
+          PositionSensor  { name "left_front_pos" }
+        ]
+        endPoint Solid {
+          translation 0.22 0.315 -0.05
+          rotation 1 0 0 1.5708
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor 0.1 0.1 0.1 roughness 0.9 }
+              geometry Cylinder { height 0.08 radius 0.12 }
+            }
+          ]
+          name "wheel_fl"
+          boundingObject Cylinder { height 0.08 radius 0.12 }
+          physics Physics { density -1 mass 2 }
+        }
+      }
+      DEF WHEEL_FR HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0 1 0
+          anchor 0.22 -0.315 -0.05
+        }
+        device [
+          RotationalMotor { name "right_front_motor" maxVelocity 10 maxTorque 50 }
+          PositionSensor  { name "right_front_pos" }
+        ]
+        endPoint Solid {
+          translation 0.22 -0.315 -0.05
+          rotation 1 0 0 1.5708
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor 0.1 0.1 0.1 roughness 0.9 }
+              geometry Cylinder { height 0.08 radius 0.12 }
+            }
+          ]
+          name "wheel_fr"
+          boundingObject Cylinder { height 0.08 radius 0.12 }
+          physics Physics { density -1 mass 2 }
+        }
+      }
+      DEF WHEEL_RL HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0 1 0
+          anchor -0.22 0.315 -0.05
+        }
+        device [
+          RotationalMotor { name "left_rear_motor"  maxVelocity 10 maxTorque 50 }
+          PositionSensor  { name "left_rear_pos" }
+        ]
+        endPoint Solid {
+          translation -0.22 0.315 -0.05
+          rotation 1 0 0 1.5708
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor 0.1 0.1 0.1 roughness 0.9 }
+              geometry Cylinder { height 0.08 radius 0.12 }
+            }
+          ]
+          name "wheel_rl"
+          boundingObject Cylinder { height 0.08 radius 0.12 }
+          physics Physics { density -1 mass 2 }
+        }
+      }
+      DEF WHEEL_RR HingeJoint {
+        jointParameters HingeJointParameters {
+          axis 0 1 0
+          anchor -0.22 -0.315 -0.05
+        }
+        device [
+          RotationalMotor { name "right_rear_motor" maxVelocity 10 maxTorque 50 }
+          PositionSensor  { name "right_rear_pos" }
+        ]
+        endPoint Solid {
+          translation -0.22 -0.315 -0.05
+          rotation 1 0 0 1.5708
+          children [
+            Shape {
+              appearance PBRAppearance { baseColor 0.1 0.1 0.1 roughness 0.9 }
+              geometry Cylinder { height 0.08 radius 0.12 }
+            }
+          ]
+          name "wheel_rr"
+          boundingObject Cylinder { height 0.08 radius 0.12 }
+          physics Physics { density -1 mass 2 }
+        }
+      }
+
+      # ---- LiDAR (Livox-equivalent: 360 horiz, +/-15 vert, ~10 Hz) ----
+      # Position matches rove_description sensor.urdf.xacro:
+      # top_link at +0.15 above base, Livox offset (-0.3, 0, 0.13) with pitch +30deg, yaw pi.
+      # Net: roughly (-0.3, 0, 0.28) above base, with pitch +30deg yaw 180deg.
+      DEF LIDAR Pose {
+        translation -0.3 0 0.28
+        rotation 0 1 0 0.5236   # +30deg pitch (yaw pi handled by Lidar layout symmetry)
+        children [
+          Lidar {
+            name "rove_lidar"
+            translation 0 0 0
+            rotation 0 0 1 3.14159  # yaw pi to mirror real mounting
+            tiltAngle 0
+            horizontalResolution IS lidarHorizontal
+            fieldOfView 6.2831853  # 360 deg
+            verticalFieldOfView 0.5236  # +/- 15 deg (~30 deg total)
+            numberOfLayers IS lidarVerticalLayers
+            near 0.9
+            minRange 0.9
+            maxRange IS lidarMaxRange
+            defaultFrequency IS lidarFreq
+            type "rotating"
+          }
+        ]
+      }
+
+      # ---- IMU triplet (InertialUnit + Accelerometer + Gyro) ----
+      # Mounted at livox_frame so /livox/imu is consistent with real Livox-built-in IMU.
+      DEF IMU Pose {
+        translation -0.3 0 0.28
+        rotation 0 1 0 0.5236
+        children [
+          InertialUnit { name "rove_imu" }
+          Accelerometer { name "rove_accel" }
+          Gyro          { name "rove_gyro" }
+        ]
+      }
+
+      # ---- RGB camera ----
+      DEF CAMERA Pose {
+        translation -0.4 0 0.15
+        rotation 0 0 1 3.14159   # face -X to match real camera mounting (yaw pi)
+        children [
+          Camera {
+            name "rove_camera"
+            width  IS cameraWidth
+            height IS cameraHeight
+            fieldOfView 1.0
+            near 0.05
+          }
+        ]
+      }
+
+      # ---- GPS (ground truth pose) ----
+      DEF GPS Pose {
+        translation 0 0 0.15
+        children [
+          GPS { name "rove_gps" }
+        ]
+      }
+    ]
+    boundingObject Box { size 0.7 0.5 0.18 }
+    physics Physics {
+      density -1
+      mass 60
+      centerOfMass [ 0 0 -0.02 ]
+      inertiaMatrix [ 2.5 3.0 4.0, 0 0 0 ]
+    }
+  }
+}

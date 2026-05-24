@@ -1,0 +1,61 @@
+#VRML_SIM R2023b utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/UnevenTerrain.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/obstacles/protos/OilBarrel.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/trees/protos/PalmTree.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/trees/protos/BigSassafras.proto"
+EXTERNPROTO "../protos/Rove.proto"
+
+WorldInfo {
+  basicTimeStep 16
+  coordinateSystem "ENU"
+  contactProperties [
+    ContactProperties {
+      coulombFriction [ 1.2 ]
+      softCFM 0.0001
+    }
+  ]
+}
+Viewpoint {
+  orientation -0.3 0.3 0.9 1.5
+  position 12 -8 6
+  follow "rove"
+}
+TexturedBackground {
+  texture "noon_cloudy_countryside"
+}
+TexturedBackgroundLight {
+  texture "noon_cloudy_countryside"
+}
+
+UnevenTerrain {
+  translation 0 0 0
+  size 80 80 1.0
+  xDimension 64
+  yDimension 64
+  appearance PBRAppearance {
+    baseColor 0.45 0.4 0.3
+    roughness 1.0
+    metalness 0
+  }
+  randomSeed 4
+  perlinNOctaves 4
+}
+
+# Visual features for loop closure / matching
+OilBarrel  { translation  6  2 0.5  name "oil_barrel_1" }
+OilBarrel  { translation -4  5 0.5  name "oil_barrel_2" }
+OilBarrel  { translation  8 -6 0.5  name "oil_barrel_3" }
+OilBarrel  { translation -7 -3 0.5  name "oil_barrel_4" }
+PalmTree   { translation 10  0 0    name "palm_tree_1" }
+PalmTree   { translation -10 8 0    name "palm_tree_2" }
+BigSassafras { translation 0 10 0   name "sassafras_1" }
+BigSassafras { translation 5 -10 0  name "sassafras_2" }
+
+Rove {
+  translation 0 0 0.5
+  rotation 0 0 1 0
+  name "rove"
+}
