@@ -48,6 +48,7 @@ def _build_env(domain_id: int, headless: bool = False) -> dict:
         # user's actual desktop during autonomous runs.
         env.pop('DISPLAY', None)
         env.pop('WAYLAND_DISPLAY', None)
+        env['QT_QPA_PLATFORM'] = 'xcb'
     return env
 
 
@@ -115,6 +116,33 @@ def _wait_for_topic(env: dict, topic: str, timeout_s: float) -> bool:
             return True
         time.sleep(1.0)
     return False
+
+
+def _drive_with_waypoint_driver(env: dict, trajectory_path: Path) -> None:
+    """Spawn waypoint_driver as a subprocess and wait for it.
+
+    Sets `use_sim_time=True` by default; aborted by overall scripted_runner
+    timeout if it hangs."""
+    import subprocess as _subprocess
+    drv_env = env.copy()
+    drv_env['PYTHONUNBUFFERED'] = '1'
+    print(f'[scripted_run] launching waypoint_driver: {trajectory_path}',
+          file=sys.stderr)
+    rc = _subprocess.call([
+        'python3', '-u', '-m', 'rove_sim_webots.waypoint_driver',
+        str(trajectory_path),
+    ], env=drv_env)
+    print(f'[scripted_run] waypoint_driver exited rc={rc}', file=sys.stderr)
+
+
+def _dispatch_trajectory(env: dict, trajectory_path: Path) -> None:
+    """Detect yaml type and call the right driver."""
+    import yaml
+    data = yaml.safe_load(trajectory_path.read_text())
+    if isinstance(data, dict) and data.get('type') == 'waypoints':
+        _drive_with_waypoint_driver(env, trajectory_path)
+    else:
+        _drive_trajectory(env, trajectory_path)
 
 
 def _drive_trajectory(env: dict, trajectory_path: Path) -> None:
@@ -240,7 +268,7 @@ def run_live(args) -> int:
             print('[scripted_run] timed out waiting for /livox/lidar', file=sys.stderr)
             return 2
         trajectory_path = _resolve_trajectory(args.trajectory)
-        _drive_trajectory(env, trajectory_path)
+        _dispatch_trajectory(env, trajectory_path)
         # Settle so rtabmap finalizes the db.
         time.sleep(args.post_drive_settle)
     finally:
@@ -306,7 +334,7 @@ def run_validate(args) -> int:
         time.sleep(2.0)
 
         trajectory_path = _resolve_trajectory(args.trajectory)
-        _drive_trajectory(env, trajectory_path)
+        _dispatch_trajectory(env, trajectory_path)
         time.sleep(args.post_drive_settle)
     finally:
         if bag is not None:
@@ -362,7 +390,9 @@ def run_record(args) -> int:
             return 2
 
         topics = [
-            '/livox/lidar', '/livox/imu', '/rove/camera/image_raw',
+            '/livox/lidar', '/livox/imu',
+            '/ground_truth/odom',
+            '/rove/camera/image_raw',
             '/rove/gps', '/odom', '/tf', '/tf_static', '/clock',
         ]
         print(f'[scripted_run] recording bag -> {bag_path}')
@@ -373,7 +403,7 @@ def run_record(args) -> int:
         time.sleep(2.0)
 
         trajectory_path = _resolve_trajectory(args.trajectory)
-        _drive_trajectory(env, trajectory_path)
+        _dispatch_trajectory(env, trajectory_path)
         time.sleep(args.post_drive_settle)
     finally:
         if bag is not None:

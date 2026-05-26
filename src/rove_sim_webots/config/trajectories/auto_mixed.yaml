@@ -1,0 +1,18 @@
+name: auto_mixed_tour8
+type: waypoints
+description: |
+  Auto-generated for mixed.wbt. path=109.5 m, min_clearance=1.62 m.
+max_v: 0.4
+max_w: 0.5
+pos_tol_m: 0.30
+yaw_tol_rad: 0.10
+stuck_timeout_s: 6.0
+waypoints:
+  - [-0.700, 18.900]
+  - [-3.300, 19.500]
+  - [3.900, 19.500]
+  - [7.900, 19.500]
+  - [7.300, -2.900]
+  - [8.300, -19.100]
+  - [19.100, -19.500]
+  - [0.100, 0.100]

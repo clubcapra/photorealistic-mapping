@@ -35,3 +35,6 @@ CMakeLists.txt.user
 CATKIN_IGNORE
 
 __pycache__
+
+# Webots IDE state (camera viewpoint etc.)
+**/.*.wbproj

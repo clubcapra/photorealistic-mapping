@@ -1,0 +1,20 @@
+name: auto_outdoor_terrain_tour10
+type: waypoints
+description: |
+  Auto-generated for outdoor_terrain.wbt. path=114.0 m, min_clearance=1.65 m.
+max_v: 0.4
+max_w: 0.5
+pos_tol_m: 0.30
+yaw_tol_rad: 0.10
+stuck_timeout_s: 6.0
+waypoints:
+  - [-13.100, -19.300]
+  - [-16.100, -19.100]
+  - [-18.900, -18.500]
+  - [-19.300, -15.300]
+  - [-8.300, -1.500]
+  - [14.900, 19.300]
+  - [17.100, 17.900]
+  - [19.300, 18.900]
+  - [19.300, 16.300]
+  - [0.100, 0.100]

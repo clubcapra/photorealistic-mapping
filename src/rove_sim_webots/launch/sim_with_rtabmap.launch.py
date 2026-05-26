@@ -54,11 +54,11 @@ def generate_launch_description():
             'icp_odometry': 'true',
             'use_sim_time': 'true',
             'database_path': ['~/.ros/', LaunchConfiguration('db_name')],
-            # Disable RViz and rtabmap_viz; both crash with SIGABRT under
-            # xvfb-run (no GL context for Qt), and we don't need them for
-            # autonomous validation runs.
+            # Disable RViz and rtabmap_viz by default; both crash with SIGABRT
+            # under xvfb-run (no GL context for Qt). Set WEBOTS_RTABMAP_VIZ=true
+            # for interactive runs where you want to watch the map build.
             'rviz': 'false',
-            'rtabmap_viz': 'false',
+            'rtabmap_viz': os.environ.get('WEBOTS_RTABMAP_VIZ', 'false'),
             # Default Icp/MaxTranslation is 0.2 m — too tight when the sim
             # runs slower than realtime under load (scan gap > 0.2 m). Bump
             # it; also disable deskewing since we don't publish a fixed_frame.

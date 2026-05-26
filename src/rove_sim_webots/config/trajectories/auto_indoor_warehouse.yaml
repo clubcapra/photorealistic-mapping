@@ -1,0 +1,14 @@
+name: auto_indoor_warehouse_tinyloop
+type: waypoints
+description: |
+  Auto-generated for indoor_warehouse.wbt. path=3.0 m, min_clearance=0.70 m.
+max_v: 0.4
+max_w: 0.5
+pos_tol_m: 0.30
+yaw_tol_rad: 0.10
+stuck_timeout_s: 6.0
+waypoints:
+  - [1.000, -16.000]
+  - [1.000, -15.000]
+  - [0.000, -15.000]
+  - [0.000, -16.000]
