@@ -123,6 +123,7 @@ class ReferenceCompareResult:
     max_nn_distance_m: float = 0.0
     candidate_with_pose: int = 0
     reference_with_pose: int = 0
+    alignment_yaw_rad: float = 0.0  # yaw used to align candidate frame to ref
     warnings: List[str] = field(default_factory=list)
 
 
@@ -164,10 +165,17 @@ def compare(
         )
         return res
 
-    # All-pairs nearest neighbour. With typical bag-sized DBs (1k-10k nodes),
-    # the n*m float ops are <1 GB and complete in <1 s. Drop a kd-tree in
-    # later if profile shows it dominates orchestrator runtime.
-    diffs = cand_xyz[:, None, :] - ref_xyz[None, :, :]
+    # Frame alignment: when a bag is recorded with a different starting yaw
+    # than the demo, the two dbs' coordinate frames are rotated relative to
+    # each other (each starts at identity). Search yaw around the start to
+    # find the rotation that maximises correspondence_ratio. Without this,
+    # the NN distances are inflated by frame misalignment — verified via
+    # ICP-aligning the assembled clouds (e.g. terrain cand 1 vs the demo
+    # required ~143° rotation, RMSE 7.9 cm after alignment).
+    best_yaw, best_cand_xyz = _align_by_yaw(cand_xyz, ref_xyz, tau_m=tau_m)
+    res.alignment_yaw_rad = float(best_yaw)
+
+    diffs = best_cand_xyz[:, None, :] - ref_xyz[None, :, :]
     dists = np.linalg.norm(diffs, axis=2)
     nn_dist = dists.min(axis=1)
 
@@ -176,6 +184,36 @@ def compare(
     res.max_nn_distance_m = float(np.max(nn_dist))
     res.correspondence_ratio = float(np.mean(nn_dist <= tau_m))
     return res
+
+
+def _align_by_yaw(cand_xyz: np.ndarray, ref_xyz: np.ndarray, tau_m: float
+                   ) -> tuple:
+    """Coarse-to-fine yaw search around z-axis to align candidate poses to
+    reference. Returns (best_yaw_rad, transformed candidate xyz)."""
+    def _corr_at_yaw(yaw: float) -> float:
+        c, s = np.cos(yaw), np.sin(yaw)
+        R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+        rotated = cand_xyz @ R.T
+        diffs = rotated[:, None, :] - ref_xyz[None, :, :]
+        dists = np.linalg.norm(diffs, axis=2)
+        nn_dist = dists.min(axis=1)
+        return float(np.mean(nn_dist <= tau_m))
+
+    # Coarse — 36 steps at 10° resolution.
+    yaws_coarse = np.linspace(0, 2 * np.pi, 36, endpoint=False)
+    scores_coarse = [_corr_at_yaw(y) for y in yaws_coarse]
+    best_idx = int(np.argmax(scores_coarse))
+    best_yaw = yaws_coarse[best_idx]
+
+    # Refine — 21 steps in ±10° around the coarse best.
+    yaws_fine = best_yaw + np.linspace(-np.pi/18, np.pi/18, 21)
+    scores_fine = [_corr_at_yaw(y) for y in yaws_fine]
+    best_yaw = yaws_fine[int(np.argmax(scores_fine))]
+
+    # Apply best rotation.
+    c, s = np.cos(best_yaw), np.sin(best_yaw)
+    R = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+    return best_yaw, cand_xyz @ R.T
 
 
 def main() -> int:
