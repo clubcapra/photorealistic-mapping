@@ -56,6 +56,11 @@ class RealEvaluatorConfig:
     # If RTAB-Map produces no db, the trial is failed.
     # If correspondence_ratio < this threshold for any bag, treat as failed.
     min_correspondence_ratio: float = 0.05
+    # Minimum number of candidate nodes for a bag to be "fully credited" —
+    # below this, correspondence_ratio is linearly attenuated so trivially-
+    # matched few-node runs don't game the score. Defeats the artifact where
+    # a candidate that produces 7 nodes can trivially match all of them.
+    min_candidate_nodes: int = 20
 
 
 class RealEvaluator(Evaluator):
@@ -217,12 +222,19 @@ class RealEvaluator(Evaluator):
             )
 
         # Score: lower is better. Penalize low corr_ratio, high tracking loss.
+        # Few-node attenuation: linearly down-weight corr_ratio when the
+        # candidate produced fewer than `min_candidate_nodes` — a 7-node bag
+        # that hits corr_ratio=1.0 trivially gets attenuated to 1.0 * 7/20.
+        node_factor = min(1.0, cmp_result.n_candidate_nodes / float(cfg.min_candidate_nodes))
+        effective_corr = cmp_result.correspondence_ratio * node_factor
         score = (
-            cfg.corr_weight * (1.0 - cmp_result.correspondence_ratio)
+            cfg.corr_weight * (1.0 - effective_corr)
             + cfg.loss_weight * cmp_result.tracking_loss_ratio
         )
         return float(score), {
             'correspondence_ratio': cmp_result.correspondence_ratio,
+            'effective_corr_ratio': effective_corr,
+            'node_factor': node_factor,
             'tracking_loss_ratio': cmp_result.tracking_loss_ratio,
             'tracking_loss_events': cmp_result.tracking_loss_events,
             'n_candidate_nodes': cmp_result.n_candidate_nodes,
