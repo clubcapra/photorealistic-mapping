@@ -42,6 +42,11 @@ class SimBagEvaluatorConfig:
     timeout_s: float = 180.0
     # Hard cap on a single replay; protects against rtabmap hang.
     max_replay_duration_s: float = 350.0
+    # Sanity gate against the scoring_critique gaming mode where degenerate
+    # ICP odometry produces a huge `trajectory_length_m` (e.g. 88 km over a
+    # 250 s bag), driving `drift_ratio = ate / traj_len` to ~0. Anything past
+    # this multiple of the GT path length is treated as a failed trial.
+    traj_length_max_ratio: float = 2.5
 
 
 class SimBagEvaluator(Evaluator):
@@ -157,6 +162,11 @@ class SimBagEvaluator(Evaluator):
         if drift_ratio is None or drift_ratio != drift_ratio:  # NaN
             failed = True
             failure_reason = failure_reason or 'drift_ratio is NaN/missing'
+
+        # NOTE: the validator.trajectory_length_m IS the GT path length
+        # (validator.py L232). After the dedup fix, that's a sane number
+        # bounded by sim duration × max robot speed (~125 m for our bags).
+        # If you see traj_len > 200 m here in future, something's still wrong.
 
         metrics = {
             'drift_ratio': drift_ratio,
