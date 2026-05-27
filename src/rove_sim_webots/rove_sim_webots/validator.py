@@ -82,11 +82,22 @@ def _read_bag(bag_path: Path) -> Dict[str, list]:
 
 
 def _odom_to_poses(msgs) -> List[Pose]:
-    out: List[Pose] = []
+    """Convert Odometry messages to poses, deduped + sorted by header time.
+
+    When SimBagEvaluator records the output of `ros2 bag play`, every input
+    GT message ends up captured ~2x with out-of-order receive timestamps.
+    Iterating in receive-order then computes back-and-forth jumps between
+    duplicates and produces huge bogus path lengths (88 km on a 250 s bag).
+    Dedup by header timestamp, then sort.
+    """
+    seen = {}
     for _t_ns, m in msgs:
         s = m.header.stamp
-        out.append(Pose(
-            t=s.sec + s.nanosec * 1e-9,
+        t = s.sec + s.nanosec * 1e-9
+        if t in seen:
+            continue
+        seen[t] = Pose(
+            t=t,
             x=m.pose.pose.position.x,
             y=m.pose.pose.position.y,
             z=m.pose.pose.position.z,
@@ -94,8 +105,8 @@ def _odom_to_poses(msgs) -> List[Pose]:
             qy=m.pose.pose.orientation.y,
             qz=m.pose.pose.orientation.z,
             qw=m.pose.pose.orientation.w,
-        ))
-    return out
+        )
+    return [seen[t] for t in sorted(seen)]
 
 
 def _path_to_poses(msgs) -> List[Pose]:
