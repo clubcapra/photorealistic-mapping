@@ -7,8 +7,8 @@
   ════════════════════════════════════════════════════ -->
 
   <!-- Mid360 dimensions (approx.) -->
-  <xacro:property name="mid360_radius"   value="0.0385"/>  <!-- 77mm diameter -->
-  <xacro:property name="mid360_height"   value="0.0637"/>  <!-- 63.7mm height  -->
+  <xacro:property name="mid360_radius"   value="0.033"/>  <!-- 77mm diameter -->
+  <xacro:property name="mid360_height"   value="0.055"/>  <!-- 63.7mm height  -->
 
   <!-- VN300 dimensions (approx.) -->
   <xacro:property name="vn300_x"         value="0.0360"/>  <!-- 36mm length -->
@@ -16,9 +16,9 @@
   <xacro:property name="vn300_z"         value="0.0090"/>  <!-- 9mm height  -->
 
   <!-- Mount plate (optional thin plate between them) -->
-  <xacro:property name="plate_x"         value="0.080"/>
-  <xacro:property name="plate_y"         value="0.080"/>
-  <xacro:property name="plate_z"         value="0.004"/>
+  <xacro:property name="plate_x"         value="0.150"/>
+  <xacro:property name="plate_y"         value="0.150"/>
+  <xacro:property name="plate_z"         value="0.025"/>
 
   <!-- Z offset: VN300 sits just below the plate, centred under the Mid360 -->
   <!-- total stack from base_link up:                                       -->
@@ -32,6 +32,11 @@
 
   <xacro:property name="vn300_z_offset"
       value="${-(plate_z/2 + vn300_z/2)}"/>
+  
+  <!-- Camera dimensions -->
+  <xacro:property name="cam_x"  value="0.045"/>  <!-- 25mm depth  -->
+  <xacro:property name="cam_y"  value="0.045"/>  <!-- 60mm width  -->
+  <xacro:property name="cam_z"  value="0.050"/>  <!-- 25mm height -->
 
 
   <!-- ═══════════════════════════════════════════════════
@@ -52,6 +57,10 @@
 
   <material name="livox_blue">
     <color rgba="0.05 0.35 0.75 1.0"/>
+  </material>
+
+  <material name="black">
+    <color rgba="0.1 0.1 0.1 1.0"/>
   </material>
 
 
@@ -144,6 +153,54 @@
 
   <link name="livox_frame"/>
 
+    <joint name="camera_joint" type="fixed">
+    <parent link="mount_plate"/>
+    <child  link="camera_link"/>
+    <!--
+      x = -(half plate + half camera body)  →  flush with back face
+      y = 0  (centred)
+      z = 0  (centred on plate thickness)
+      yaw = pi  →  lens faces backward (-X direction)
+    -->
+    <origin xyz="${(plate_x/2 + cam_x/2)} 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${cam_x} ${cam_y} ${cam_z}"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${cam_x} ${cam_y} ${cam_z}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.030"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0"
+               iyy="1e-6" iyz="0"
+               izz="1e-6"/>
+    </inertial>
+  </link>
+
+    <!--
+    Optical frame — used by image_pipeline, RTABMap, etc.
+    ROS convention: Z forward, X right, Y down.
+    Placed at the front face of the camera body (lens position).
+  -->
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child  link="camera_optical_frame"/>
+    <origin xyz="${cam_x/2} 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_optical_frame"/>
+
 
   <!-- ═══════════════════════════════════════════════════
        VECTORNAV VN300
@@ -160,17 +217,16 @@
          yaw   0  → adjust if connector faces a different direction
   ════════════════════════════════════════════════════ -->
 
-  <joint name="vn300_joint" type="fixed">
+  <!-- <joint name="vn300_joint" type="fixed">
     <parent link="mount_plate"/>
     <child  link="sensor_link"/>
-    <!--
       xyz: centred under the plate
       rpy: roll=pi  →  board is inverted (upside-down)
            Set yaw to match connector/antenna orientation if needed.
-    -->
     <origin xyz="0 0 ${vn300_z_offset}" rpy="${pi} 0 0"/>
-  </joint>
-
+  </joint> -->
+  
+<!-- 
   <link name="sensor_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -186,13 +242,13 @@
       </geometry>
     </collision>
     <inertial>
-      <mass value="0.030"/>   <!-- VN300 datasheet: ~30 g -->
+      <mass value="0.030"/>  
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <inertia ixx="2e-6" ixy="0" ixz="0"
                iyy="3e-6" iyz="0"
                izz="3e-6"/>
     </inertial>
-  </link>
+  </link> -->
 
 
   <!-- ═══════════════════════════════════════════════════
