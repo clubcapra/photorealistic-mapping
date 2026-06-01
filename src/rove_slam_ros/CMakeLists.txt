@@ -48,6 +48,13 @@ ament_target_dependencies(rove_slam_node
 install(TARGETS rove_slam_node
         DESTINATION lib/${PROJECT_NAME})
 
+# Install the cmd_vel→Rove bridge as an executable under the package's
+# lib/ so `ros2 run rove_slam_ros cmd_vel_to_rove.py` works.
+# The script lives in the submodule; we copy it in so it stays self-
+# contained.
+install(PROGRAMS external/rove_slam/tools/cmd_vel_to_rove.py
+        DESTINATION lib/${PROJECT_NAME})
+
 install(DIRECTORY launch config
         DESTINATION share/${PROJECT_NAME})
 
