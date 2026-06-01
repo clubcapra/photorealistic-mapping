@@ -92,6 +92,21 @@ def generate_launch_description():
             "rove_port", default_value="9101",
             description="Destination UDP port on the Rove.",
         ),
+        DeclareLaunchArgument(
+            "viewer", default_value="false",
+            description="Spawn the rerun live 3D viewer (subscribes to /tf, /odom, "
+                        "/cloud_obstacles). Needs `pip install rerun-sdk`.",
+        ),
+        DeclareLaunchArgument(
+            "viewer_raw", default_value="false",
+            description="Also stream /livox/lidar to the rerun viewer (heavy).",
+        ),
+        DeclareLaunchArgument(
+            "rviz", default_value="false",
+            description="Open rviz2 with the rove_slam config alongside everything "
+                        "else. Pre-wired to TF, /cloud_obstacles, /odom, /plan, "
+                        "/global_costmap, /local_costmap.",
+        ),
 
         # ─── bag replay (conditional) ─────────────────────────────────
         OpaqueFunction(function=_bag_action),
@@ -116,8 +131,7 @@ def generate_launch_description():
         # ─── /cmd_vel → Rove drive bridge (conditional) ──────────────
         Node(
             package="rove_slam_ros",
-            executable="cmd_vel_to_rove.py",  # installed via Python path,
-                                              # see note in README
+            executable="cmd_vel_to_rove.py",
             name="cmd_vel_to_rove",
             output="screen",
             parameters=[{
@@ -125,5 +139,31 @@ def generate_launch_description():
                 "port": LaunchConfiguration("rove_port"),
             }],
             condition=IfCondition(LaunchConfiguration("drive")),
+        ),
+
+        # ─── live rerun 3D viewer (conditional) ──────────────────────
+        Node(
+            package="rove_slam_ros",
+            executable="rerun_live.py",
+            name="rerun_live",
+            output="screen",
+            parameters=[{
+                "spawn": True,
+                "raw": LaunchConfiguration("viewer_raw"),
+            }],
+            condition=IfCondition(LaunchConfiguration("viewer")),
+        ),
+
+        # ─── rviz2 fallback viewer (conditional) ─────────────────────
+        Node(
+            package="rviz2",
+            executable="rviz2",
+            name="rviz2",
+            output="screen",
+            arguments=[
+                "-d",
+                PathJoinSubstitution([pkg, "config", "rove_slam.rviz"]),
+            ],
+            condition=IfCondition(LaunchConfiguration("rviz")),
         ),
     ])

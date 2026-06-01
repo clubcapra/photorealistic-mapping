@@ -31,6 +31,54 @@ ros2 launch rove_slam_ros slam_nav.launch.py
 ros2 launch rove_slam_ros bag_replay.launch.py \
     bag:=/home/iliana/bags/moving_extra_long_bag2 \
     with_nav:=true
+
+# 6. Or use the one-stop bringup with knobs for everything:
+ros2 launch rove_slam_ros bringup.launch.py
+# Common variants:
+ros2 launch rove_slam_ros bringup.launch.py viewer:=true        # + live rerun
+ros2 launch rove_slam_ros bringup.launch.py rviz:=true          # + rviz2
+ros2 launch rove_slam_ros bringup.launch.py bag:=~/bags/xxx     # bag replay
+ros2 launch rove_slam_ros bringup.launch.py drive:=true \
+    rove_host:=jetson.local                                      # drive the Rove
+```
+
+## Live visualization
+
+Two options, both controlled by args on `bringup.launch.py`.
+
+### rerun (recommended)
+
+```sh
+# One-time install (rerun 0.21 is the last that works with the numpy 1.x
+# pinned by ROS Humble's Python bindings):
+pip install --user 'rerun-sdk==0.21.0' 'numpy<2'
+
+# Then enable the viewer alongside any bringup:
+ros2 launch rove_slam_ros bringup.launch.py viewer:=true
+```
+
+A rerun window pops up showing the live TF tree, /odom trajectory, and
+/cloud_obstacles, all on a scrubable timeline. Pass `viewer_raw:=true` to
+also stream /livox/lidar (heavy — subsampled to 30 k points per scan).
+
+To attach a remote viewer instead (so the viewer runs on your laptop, the
+node runs on the robot), bypass the launch and run:
+```sh
+ros2 run rove_slam_ros rerun_live.py --ros-args -p serve:=true
+# then from the laptop:
+rerun --connect rerun+http://<robot-ip>:9876/proxy
+```
+
+### rviz2
+
+```sh
+ros2 launch rove_slam_ros bringup.launch.py rviz:=true
+```
+
+Opens rviz2 with [`config/rove_slam.rviz`](config/rove_slam.rviz) pre-wired
+to TF, /cloud_obstacles, /livox/lidar (disabled by default), /odom,
+/global_costmap, /local_costmap, and /plan. The Nav2 Goal tool is on the
+toolbar — click it, drop a goal in the map view, and observe /cmd_vel.
 ```
 
 ## Topics

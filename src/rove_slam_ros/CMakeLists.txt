@@ -53,6 +53,7 @@ install(TARGETS rove_slam_node
 # The script lives in the submodule; we copy it in so it stays self-
 # contained.
 install(PROGRAMS external/rove_slam/tools/cmd_vel_to_rove.py
+                scripts/rerun_live.py
         DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch config
