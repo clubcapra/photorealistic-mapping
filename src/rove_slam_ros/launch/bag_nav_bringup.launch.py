@@ -1,10 +1,18 @@
-"""Replay a rosbag2 + run full nav2 stack on top of rove_slam.
+"""Bag replay + SLAM + full nav2 (via nav2_bringup). Headless smoke test.
 
-The smoke-test scenario for the headless nav integration: feed lidar from
-a recorded bag, let SLAM publish TF + /cloud_obstacles, fire up the full
-nav2 stack, send a NavigateToPose goal, watch /cmd_vel.
+The single command that drives the headless integration test:
 
-  ros2 launch rove_slam_ros bag_nav.launch.py bag:=/home/iliana/bags/moving_extra_long_bag2
+  ros2 launch rove_slam_ros bag_nav_bringup.launch.py \
+       bag:=/home/iliana/bags/moving_extra_long_bag2
+
+Then in another shell, send a goal:
+
+  ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \\
+       "{pose: {header: {frame_id: 'new_map'},
+                pose: {position: {x: 2.0, y: 0.0, z: 0.0},
+                        orientation: {w: 1.0}}}}"
+
+  ros2 topic echo /cmd_vel
 """
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
@@ -21,13 +29,9 @@ def generate_launch_description():
             default_value="/home/iliana/bags/moving_extra_long_bag2"),
         DeclareLaunchArgument("rate", default_value="1.0"),
 
-        # Bag replay — NO --clock. The SLAM node restamps every message
-        # with `get_clock()->now()` (wall time), so the whole graph runs
-        # off real time and TF buffers stay consistent. With --clock the
-        # bag's stale stamps + the launch-up race produce relentless
-        # TF_OLD_DATA in nav2.
-        # Remap /tf and /tf_static so the bag's old chain doesn't compete
-        # with the live SLAM tree.
+        # Bag replay. Wall time everywhere (use_sim_time=false). Remap
+        # /tf + /tf_static so the bag's stale chain doesn't compete with
+        # the live SLAM tree.
         ExecuteProcess(
             cmd=[
                 "ros2", "bag", "play",
@@ -40,10 +44,10 @@ def generate_launch_description():
             output="screen",
         ),
 
-        # SLAM + full nav2 stack — wall time everywhere (use_sim_time off).
+        # SLAM + nav2 via nav2_bringup's well-tested launch.
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
-                PathJoinSubstitution([pkg, "launch", "nav.launch.py"])
+                PathJoinSubstitution([pkg, "launch", "nav_bringup.launch.py"])
             ),
             launch_arguments={"use_sim_time": "false"}.items(),
         ),

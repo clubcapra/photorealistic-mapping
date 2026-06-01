@@ -47,17 +47,11 @@ def generate_launch_description():
             }.items(),
         ),
 
-        # Local + global costmaps.
-        Node(
-            package="nav2_costmap_2d", executable="nav2_costmap_2d",
-            name="local_costmap", output="screen", parameters=common_params,
-        ),
-        Node(
-            package="nav2_costmap_2d", executable="nav2_costmap_2d",
-            name="global_costmap", output="screen", parameters=common_params,
-        ),
-
-        # nav2 stack.
+        # nav2 stack. controller_server and planner_server each embed a
+        # costmap, so we do NOT spawn standalone nav2_costmap_2d nodes —
+        # those would duplicate the costmap topics (observed during smoke
+        # testing: two /local_costmap/local_costmap nodes + competing TF
+        # subscriptions).
         Node(package="nav2_controller", executable="controller_server",
              name="controller_server", output="screen", parameters=common_params),
         Node(package="nav2_planner", executable="planner_server",
@@ -79,9 +73,7 @@ def generate_launch_description():
                 "use_sim_time": use_sim_time,
                 "autostart": True,
                 "bond_timeout": 0.0,
-                "node_names": ["local_costmap/local_costmap",
-                                "global_costmap/global_costmap",
-                                *nav2_nodes],
+                "node_names": nav2_nodes,
             }],
         ),
     ])
