@@ -107,6 +107,25 @@ def generate_launch_description():
                         "else. Pre-wired to TF, /cloud_obstacles, /odom, /plan, "
                         "/global_costmap, /local_costmap.",
         ),
+        DeclareLaunchArgument(
+            "mesh_method", default_value="poisson",
+            description="Mesh reconstruction backend used by the mesh_builder "
+                        "node. One of: poisson | bpa | tsdf | nvblox. Built on "
+                        "demand via the ~/build_mesh service, or at shutdown "
+                        "when build_mesh_on_shutdown:=true. Compare with the "
+                        "build_mesh.py CLI tool of the same name.",
+        ),
+        DeclareLaunchArgument(
+            "build_mesh_on_shutdown", default_value="true",
+            description="When the mesh_builder node receives SIGINT/SIGTERM, "
+                        "auto-trigger the build before exiting (recommended for "
+                        "bag replay smoke tests).",
+        ),
+        DeclareLaunchArgument(
+            "mesh_output_dir", default_value="/tmp/rove_slam_mesh",
+            description="Where mesh_builder writes trajectory.tum / dense.pcd "
+                        "/ mesh_<method>.ply / build.log.",
+        ),
 
         # ─── bag replay (conditional) ─────────────────────────────────
         OpaqueFunction(function=_bag_action),
@@ -165,5 +184,19 @@ def generate_launch_description():
                 PathJoinSubstitution([pkg, "config", "rove_slam.rviz"]),
             ],
             condition=IfCondition(LaunchConfiguration("rviz")),
+        ),
+
+        # ─── mesh_builder (always on; triggered via service / shutdown) ──
+        Node(
+            package="rove_slam_ros",
+            executable="mesh_builder.py",
+            name="mesh_builder",
+            output="screen",
+            parameters=[{
+                "method": LaunchConfiguration("mesh_method"),
+                "output_dir": LaunchConfiguration("mesh_output_dir"),
+                "build_on_shutdown": LaunchConfiguration("build_mesh_on_shutdown"),
+                "urdf_extrinsic": True,
+            }],
         ),
     ])

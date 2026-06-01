@@ -40,6 +40,57 @@ ros2 launch rove_slam_ros bringup.launch.py rviz:=true          # + rviz2
 ros2 launch rove_slam_ros bringup.launch.py bag:=~/bags/xxx     # bag replay
 ros2 launch rove_slam_ros bringup.launch.py drive:=true \
     rove_host:=jetson.local                                      # drive the Rove
+ros2 launch rove_slam_ros bringup.launch.py mesh_method:=tsdf   # bounded-max mesh
+```
+
+## Mesh building (mesh_builder node)
+
+A `mesh_builder` node is always running in the bringup. It buffers SLAM
+trajectory + lidar scans live and produces a mesh on demand via a ROS
+service. The reconstruction backend is chosen by the `mesh_method`
+ROS parameter (default `poisson`):
+
+```sh
+# Pick a method at launch time:
+ros2 launch rove_slam_ros bringup.launch.py mesh_method:=bpa
+ros2 launch rove_slam_ros bringup.launch.py mesh_method:=tsdf
+ros2 launch rove_slam_ros bringup.launch.py mesh_method:=poisson
+
+# Trigger a build (from any shell with the workspace sourced):
+ros2 service call /mesh_builder/build_mesh std_srvs/srv/Trigger
+
+# Output (default /tmp/rove_slam_mesh):
+#   trajectory.tum            live-accumulated SLAM trajectory
+#   scans.rec/                buffered lidar scans (live only)
+#   mesh_<method>.dense.pcd   intermediate dense cloud (bpa/poisson)
+#   mesh_<method>.ply         the mesh
+#   build.log                 tool stdout/stderr from that build
+```
+
+If `build_mesh_on_shutdown:=true` (default), the node also fires a build
+when SIGINT/SIGTERM hits — useful for bag-replay tests where you want
+the mesh right after the bag finishes.
+
+**Backend comparison** (measured on bag2: 1071 scans, 18 × 23 m room):
+
+| method  | mean   | median | p95    | max    | wall-clock |
+|---------|-------:|-------:|-------:|-------:|-----------:|
+| bpa     | 2.5 cm | 1.5 cm | 6.5 cm | 4.0 m  | 33 s       |
+| poisson | 2.8 cm | 2.1 cm | 6.6 cm | 3.8 m  | 34 s       |
+| tsdf    | 6.0 cm | 3.5 cm | 19 cm  | 1.2 m  | 23 s       |
+| nvblox  | planned: ~1-2 cm at 5 cm voxel (CUDA native lidar ray-tracer) |
+
+Pick by use case:
+- Best accuracy, time-flexible:  `bpa`
+- Smooth display mesh:           `poisson`
+- No post-processing budget, bounded max-error: `tsdf`
+- Production live + RGB color:   `nvblox` (planned)
+
+The same backend selection is available offline through the CLI in the
+SLAM submodule:
+```sh
+external/rove_slam/tools/build_mesh.py --method tsdf \
+    --rec <recording.rec> --traj <trajectory.tum> --out mesh.ply
 ```
 
 ## Live visualization

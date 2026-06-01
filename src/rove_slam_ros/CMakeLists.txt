@@ -55,6 +55,7 @@ install(TARGETS rove_slam_node
 install(PROGRAMS external/rove_slam/tools/cmd_vel_to_rove.py
                 scripts/rerun_live.py
                 scripts/wait_for_nav.py
+                scripts/mesh_builder.py
         DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch config
