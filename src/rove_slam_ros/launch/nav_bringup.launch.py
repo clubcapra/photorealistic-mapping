@@ -44,7 +44,7 @@ def generate_launch_description():
                 "use_sim_time": LaunchConfiguration("use_sim_time"),
                 "params_file": nav_params,
                 "autostart": "true",
-                "use_composition": "True",
+                "use_composition": "False",
             }.items(),
         ),
     ])
