@@ -12,6 +12,10 @@
 set -uo pipefail
 BAG="${1:-/home/iliana/bags/moving_extra_long_bag2}"
 GOAL_X="${2:-2.0}"
+# Most bags publish lidar on /livox/lidar already. The dual-lidar camera
+# bag (rosbag2_test_camera_lidars) splits it across
+# /livox/lidar_192_168_2_40 + /livox/lidar_192_168_2_41 — pick a primary.
+BAG_LIDAR_TOPIC="${3:-/livox/lidar}"
 WS="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$WS"
 
@@ -23,9 +27,12 @@ pkill -9 -f "rove_slam_node|nav2_|component_container|lifecycle_manager|ros2 bag
     2>/dev/null || true
 sleep 2
 
-echo "[smoke] launching SLAM + nav2 + bag replay (bag=$BAG)"
+echo "[smoke] launching SLAM + nav2 + bag replay (bag=$BAG, lidar=$BAG_LIDAR_TOPIC)"
+# --loop keeps TF + sensor publishing alive for the whole smoke even on
+# short bags (the camera-lidar bag is only 27.5 s).
 ros2 launch rove_slam_ros bag_nav_bringup.launch.py \
-    bag:="$BAG" rate:=3.0 > /tmp/headless_smoke.log 2>&1 &
+    bag:="$BAG" rate:=1.0 loop:=true bag_lidar_topic:="$BAG_LIDAR_TOPIC" \
+    > /tmp/headless_smoke.log 2>&1 &
 LAUNCH_PID=$!
 trap 'kill -INT $LAUNCH_PID 2>/dev/null
       sleep 2
