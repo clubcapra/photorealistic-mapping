@@ -8,4 +8,4 @@
 	branch = humble
 [submodule "src/rove_slam_ros/external/rove_slam"]
 	path = src/rove_slam_ros/external/rove_slam
-	url = /home/iliana/prog/rove_slam
+	url = https://github.com/clubcapra/rove_slam.git
