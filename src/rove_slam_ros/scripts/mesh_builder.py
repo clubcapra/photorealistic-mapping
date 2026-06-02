@@ -143,6 +143,21 @@ class MeshBuilder(Node):
         self.build_mesh_tool = Path(
             self.declare_parameter("build_mesh_tool", default_tool).value
         )
+        # Color-mesh hook. When colorize=true and bag_path is set, after a
+        # mesh build we invoke color_mesh.py to project camera images from
+        # the bag onto the mesh and write mesh_<method>_colored.ply.
+        self.colorize = bool(self.declare_parameter("colorize", False).value)
+        self.bag_path = self.declare_parameter("bag_path", "").value
+        self.urdf_path = self.declare_parameter("urdf_path", "").value
+        self.cam_intrinsics_path = self.declare_parameter(
+            "cam_intrinsics_path", "").value
+        default_color_tool = (
+            "/home/iliana/prog/photorealistic-mapping/src/rove_slam_ros/"
+            "scripts/color_mesh.py"
+        )
+        self.color_mesh_tool = Path(
+            self.declare_parameter("color_mesh_tool", default_color_tool).value
+        )
 
         if self.method not in {"poisson", "bpa", "tsdf", "nvblox"}:
             self.get_logger().error(
@@ -272,7 +287,54 @@ class MeshBuilder(Node):
         self.get_logger().info(
             f"built {self.method} mesh in {elapsed:.1f}s → {mesh_path}"
         )
+
+        # Optional: colorize the mesh from a bag's camera streams.
+        if self.colorize:
+            colored = self._colorize_mesh(mesh_path, traj_path)
+            if colored is not None:
+                return colored
         return mesh_path
+
+    def _colorize_mesh(self, mesh_path: Path, traj_path: Path) -> Path | None:
+        """Run color_mesh.py to project bag camera images onto the mesh."""
+        if not self.bag_path:
+            self.get_logger().warn(
+                "colorize=true but bag_path is empty — skipping colorization."
+            )
+            return None
+        if not self.urdf_path:
+            self.get_logger().warn(
+                "colorize=true but urdf_path is empty — skipping."
+            )
+            return None
+        if not self.color_mesh_tool.exists():
+            self.get_logger().error(
+                f"color_mesh tool not found at {self.color_mesh_tool}"
+            )
+            return None
+        out = mesh_path.with_name(mesh_path.stem + "_colored.ply")
+        cmd = [sys.executable, str(self.color_mesh_tool),
+                "--mesh", str(mesh_path),
+                "--bag",  str(self.bag_path),
+                "--traj", str(traj_path),
+                "--urdf", str(self.urdf_path),
+                "--out",  str(out)]
+        if self.cam_intrinsics_path:
+            cmd += ["--intrinsics", str(self.cam_intrinsics_path)]
+        log_path = self.output_dir / "color_mesh.log"
+        self.get_logger().info(f"colorizing: {' '.join(cmd)}")
+        t0 = time.time()
+        with open(log_path, "wb") as logf:
+            rc = subprocess.call(cmd, stdout=logf, stderr=subprocess.STDOUT)
+        elapsed = time.time() - t0
+        if rc != 0 or not out.exists():
+            self.get_logger().error(
+                f"color_mesh exited {rc} (see {log_path})")
+            return None
+        self.get_logger().info(
+            f"colorized mesh in {elapsed:.1f}s → {out}"
+        )
+        return out
 
     def _write_tum(self, path: Path,
                     poses: list[tuple[int, list[float], list[float]]]) -> None:
