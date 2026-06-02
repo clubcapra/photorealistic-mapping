@@ -33,7 +33,7 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
 )
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, LaunchConfigurationEquals
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -203,6 +203,22 @@ def generate_launch_description():
                 PathJoinSubstitution([pkg, "config", "rove_slam.rviz"]),
             ],
             condition=IfCondition(LaunchConfiguration("rviz")),
+        ),
+
+        # ─── nvblox (conditional: only when mesh_method:=nvblox) ──────
+        # Lives in a separate launch file because its setup is platform-
+        # specific (requires CUDA + isaac_ros_nvblox). On non-NVIDIA
+        # systems the launch file errors fast and the user is expected
+        # to switch to mesh_method:=tsdf (the CPU equivalent).
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                PathJoinSubstitution([pkg, "launch", "nvblox.launch.py"])
+            ),
+            launch_arguments={
+                "voxel": "0.05",
+                "global_frame": "map",
+            }.items(),
+            condition=LaunchConfigurationEquals("mesh_method", "nvblox"),
         ),
 
         # ─── mesh_builder (always on; triggered via service / shutdown) ──
