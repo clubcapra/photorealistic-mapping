@@ -73,18 +73,25 @@ the mesh right after the bag finishes.
 
 **Backend comparison** (measured on bag2: 1071 scans, 18 × 23 m room):
 
-| method  | mean   | median | p95    | max    | wall-clock |
-|---------|-------:|-------:|-------:|-------:|-----------:|
-| bpa     | 2.5 cm | 1.5 cm | 6.5 cm | 4.0 m  | 33 s       |
-| poisson | 2.8 cm | 2.1 cm | 6.6 cm | 3.8 m  | 34 s       |
-| tsdf    | 6.0 cm | 3.5 cm | 19 cm  | 1.2 m  | 23 s       |
-| nvblox  | planned: ~1-2 cm at 5 cm voxel (CUDA native lidar ray-tracer) |
+| method  | mean   | median | p95    | max    | wall-clock | visual |
+|---------|-------:|-------:|-------:|-------:|-----------:|:------:|
+| poisson | 2.8 cm | 2.1 cm | 6.6 cm | 3.8 m  | 34 s       | smooth |
+| tsdf    | 6.0 cm | 3.5 cm | 19 cm  | 1.2 m  | 23 s       | smooth |
+| bpa     | 2.5 cm | 1.5 cm | 6.5 cm | 4.0 m  | 33 s       | **noisy** |
+| nvblox  | planned: ~1-2 cm at 5 cm voxel (CUDA native lidar ray-tracer)    |
+
+**Note on BPA**: the accuracy metric looks best for BPA, but that's
+misleading — BPA preserves every input point as a mesh vertex, so the
+surface inherits all per-scan SLAM noise verbatim. Visually it's the
+worst of the three. Poisson smooths over the noise (implicit-function
+fit), TSDF averages it out (voxel weights). Pick BPA only if a
+downstream tool needs exact-point preservation.
 
 Pick by use case:
-- Best accuracy, time-flexible:  `bpa`
-- Smooth display mesh:           `poisson`
-- No post-processing budget, bounded max-error: `tsdf`
-- Production live + RGB color:   `nvblox` (planned)
+- Smooth display mesh, time-flexible:   `poisson`  (recommended default)
+- No post-processing budget, bounded max: `tsdf`    (until nvblox lands)
+- Production live + RGB color:          `nvblox`  (planned)
+- Exact-point preservation:             `bpa`     (rare; visually noisy)
 
 The same backend selection is available offline through the CLI in the
 SLAM submodule:
