@@ -53,6 +53,49 @@ window. If this works, the obstacle layer is correctly wired.
 ## 4. Headless nav goal test
 
 ```sh
+# Single-command end-to-end pass/fail. Args: <bag_dir> <goal_x_m> [lidar_topic]
+bash src/rove_slam_ros/test/headless_nav_smoke.sh \
+    /home/iliana/bags/moving_extra_long_bag2 \
+    2.0
+
+# Camera-lidar bag (dual lidar, short 27.5 s):
+bash src/rove_slam_ros/test/headless_nav_smoke.sh \
+    /home/iliana/bags/rosbag2_test_camera_lidars \
+    1.5 \
+    /livox/lidar_192_168_2_40
+```
+
+The script:
+1. Cleans up leftover SLAM/nav processes
+2. Launches `bag_nav_bringup.launch.py` (SLAM + nav2_bringup + bag play
+   with `--loop`)
+3. Runs `wait_for_nav.py` to retry the lifecycle race
+4. Sends a NavigateToPose goal
+5. Watches `/cmd_vel` for 10 s
+
+**Pass condition**: `/cmd_vel` publishes non-zero linear or angular
+twist within 10 s of the goal send. Verified on the camera-lidar bag —
+controller emits `linear.x = 0.6 m/s` immediately on goal accept.
+
+### Short-bag note
+
+The smoke loops the bag (`loop:=true`) so TF + sensor publishes never
+go stale. Without it, the 27.5 s camera-lidar bag would replay in 9 s
+at rate 3.0 and the goal-send would arrive ~6 s after TF stopped
+updating — nav2's controller then `Transform data too old` errors out,
+the BT fires "goal succeeded" without motion, and `/cmd_vel` stays
+zero (false-negative smoke).
+
+### Lidar-topic remap
+
+The default `/livox/lidar` matches the older bags. Newer bags with
+multiple Livox sensors publish IP-suffixed topics
+(`/livox/lidar_192_168_2_40` etc.) — pass the primary's full topic
+as the third arg to remap it to `/livox/lidar` for SLAM.
+
+### Manual goal-send (without the smoke wrapper)
+
+```sh
 ros2 launch rove_slam_ros bag_nav.launch.py \
     bag:=/home/iliana/bags/moving_extra_long_bag2
 
@@ -65,11 +108,6 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose '{
   }
 }'
 ```
-
-**Pass condition**: `/cmd_vel` publishes non-zero linear or angular
-twist within 15 s of the goal send. Recovery behaviors (spin, backup)
-count — those also exercise the BT navigator → controller → smoother
-pipeline.
 
 ### What goes wrong (and what fixed it)
 
