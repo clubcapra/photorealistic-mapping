@@ -1,0 +1,61 @@
+# Camera intrinsics for color_mesh.py.
+#
+# *** PLACEHOLDER VALUES ***
+# These are 90°-HFOV defaults computed from the image resolution alone
+# (fx = fy = W/2, cx = W/2, cy = H/2, no distortion). Colors projected
+# through these will be GEOMETRICALLY WRONG until each camera is
+# calibrated and these values are replaced with the real intrinsics.
+#
+# Calibration procedure (one-time, per-camera, after the URDF lands):
+#   1. Print a checkerboard (e.g. 8x6, 30 mm squares).
+#   2. Record /cam_<dir>/image_raw while waving the board through the
+#      whole frame, including corners + tilts.
+#   3. Run: ros2 run camera_calibration cameracalibrator \
+#              --size 8x6 --square 0.03 image:=/cam_<dir>/image_raw
+#   4. Copy fx, fy, cx, cy, D from the resulting calibration .yaml
+#      into the matching block below.
+#
+# Distortion models supported by color_mesh.py:
+#   plumb_bob     5 coeffs (k1, k2, p1, p2, k3) — typical for pinhole cams
+#   none          no distortion correction (fastest, fine for narrow FOV)
+#   equidistant   not implemented yet (fisheye)
+
+cam_north_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_east_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_south_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_west_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]

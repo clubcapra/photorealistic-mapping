@@ -126,6 +126,25 @@ def generate_launch_description():
             description="Where mesh_builder writes trajectory.tum / dense.pcd "
                         "/ mesh_<method>.ply / build.log.",
         ),
+        DeclareLaunchArgument(
+            "colorize_mesh", default_value="false",
+            description="After a mesh build, run scripts/color_mesh.py to "
+                        "project the bag's camera images onto the mesh, "
+                        "producing mesh_<method>_colored.ply. Requires bag + "
+                        "urdf_path + (optional) cam_intrinsics_path.",
+        ),
+        DeclareLaunchArgument(
+            "urdf_path", default_value="",
+            description="Path to the URDF used by color_mesh.py to compose "
+                        "cam_*_optical_frame ← base_link transforms. "
+                        "Usually src/rove_description/urdf/rove_standard.urdf.",
+        ),
+        DeclareLaunchArgument(
+            "cam_intrinsics_path", default_value="",
+            description="Optional YAML with per-camera intrinsics. "
+                        "Defaults to src/rove_slam_ros/config/cam_intrinsics.yaml "
+                        "(PLACEHOLDER 90°-HFOV values) if left empty.",
+        ),
 
         # ─── bag replay (conditional) ─────────────────────────────────
         OpaqueFunction(function=_bag_action),
@@ -197,6 +216,10 @@ def generate_launch_description():
                 "output_dir": LaunchConfiguration("mesh_output_dir"),
                 "build_on_shutdown": LaunchConfiguration("build_mesh_on_shutdown"),
                 "urdf_extrinsic": True,
+                "colorize": LaunchConfiguration("colorize_mesh"),
+                "bag_path": LaunchConfiguration("bag"),
+                "urdf_path": LaunchConfiguration("urdf_path"),
+                "cam_intrinsics_path": LaunchConfiguration("cam_intrinsics_path"),
             }],
         ),
     ])
