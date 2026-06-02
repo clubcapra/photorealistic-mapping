@@ -7,7 +7,8 @@ Panels:
         - /Global Options1
         - /Status1
         - /RobotModel1
-      Splitter Ratio: 0.5
+        - /RobotModel1/Status1
+      Splitter Ratio: 0.3423076868057251
     Tree Height: 549
   - Class: rviz_common/Selection
     Name: Selection
@@ -61,42 +62,233 @@ Visualization Manager:
         Value: /robot_description
       Enabled: true
       Links:
+        ASection:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        ASection_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         All Links Enabled: true
+        BSection:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        BSection_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        Base:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        Base_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        Core:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        DrumBL:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        DrumBL_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        DrumBR:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        DrumBR_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        DrumFL:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        DrumFL_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        DrumFR:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        DrumFR_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         Expand Joint Details: false
         Expand Link Details: false
         Expand Tree: false
+        FlipperBL:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        FlipperBL_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        FlipperBR:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        FlipperBR_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        FlipperFL:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        FlipperFL_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        FlipperFR:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        FlipperFR_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        JointA:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        JointA_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        JointB:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        JointB_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        JointGripper:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        JointGripper_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
         Link Tree Style: Links in Alphabetic Order
-        base_link:
+        chinese_camera:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        flipper_fl:
+        chinese_camera_2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        flipper_fr:
+        chinese_camera_2_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chinese_camera_3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        flipper_rl:
+        chinese_camera_3_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chinese_camera_4:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        flipper_rr:
+        chinese_camera_4_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chinese_camera_5:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        track_l:
+        chinese_camera_5_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chinese_camera_6:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        track_r:
+        chinese_camera_6_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chinese_camera_7:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        chinese_camera_7_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        chinese_camera_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        dji_mid360:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        dji_mid360_2:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        dji_mid360_2_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        dji_mid360_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        pole:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+          Value: true
+        pole_pivot:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        vn300_vectornav:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -126,7 +318,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: base_link
+    Fixed Frame: Core
     Frame Rate: 30
   Name: root
   Tools:
@@ -169,25 +361,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 2.198798894882202
+      Distance: 4.057027339935303
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: -0.09096599370241165
+        Y: 0.004625476896762848
+        Z: 0.15463967621326447
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7453973293304443
+      Pitch: 0.5653976202011108
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.0590248107910156
+      Yaw: 1.744025468826294
     Saved: ~
 Window Geometry:
   Displays:
@@ -195,7 +387,7 @@ Window Geometry:
   Height: 846
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd000000040000000000000156000002b0fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000002b0000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002b0fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d000002b0000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004b00000003efc0100000002fb0000000800540069006d00650100000000000004b0000002fb00fffffffb0000000800540069006d006501000000000000045000000000000000000000023f000002b000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000004000000000000020a000002b0fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000002b0000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000002b0fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d000002b0000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000004b00000003efc0100000002fb0000000800540069006d00650100000000000004b0000002fb00fffffffb0000000800540069006d006501000000000000045000000000000000000000018b000002b000000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
