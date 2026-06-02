@@ -87,11 +87,43 @@ worst of the three. Poisson smooths over the noise (implicit-function
 fit), TSDF averages it out (voxel weights). Pick BPA only if a
 downstream tool needs exact-point preservation.
 
+**Note on Poisson "ballooning"**: Poisson invents surfaces in
+unobserved regions — its max-error of 3.8 m comes from bulges into
+the void rather than per-vertex noise. If your scan coverage isn't
+near-full, prefer TSDF (bounded by construction).
+
+**TSDF post-processing** (on by default in `tsdf_mesh.py`):
+- Connected-component filter drops floaters smaller than 200 triangles.
+- 5-iter Taubin smoothing (λ=0.5, μ=-0.53) denoises without shrinkage.
+Adds ~0.2 s, gets TSDF visual quality to ~Poisson-equivalent without
+the bulges. Disable with `--smooth-iters 0 --min-cluster-tris 0`.
+
 Pick by use case:
-- Smooth display mesh, time-flexible:   `poisson`  (recommended default)
-- No post-processing budget, bounded max: `tsdf`    (until nvblox lands)
-- Production live + RGB color:          `nvblox`  (planned)
-- Exact-point preservation:             `bpa`     (rare; visually noisy)
+- Live + color, NVIDIA target:         `nvblox`   (recommended on Jetson — see below)
+- Live + color, CPU only:              `tsdf`     (with the colorize hook)
+- Smooth display mesh, post-process:   `poisson`  (no live constraint)
+- Exact-point preservation:            `bpa`      (rare; visually noisy)
+
+### nvblox (CUDA live TSDF, on NVIDIA targets)
+
+`mesh_method:=nvblox` brings up `nvblox_node` (from `isaac_ros_nvblox`)
+alongside SLAM. It integrates lidar + camera color into a TSDF voxel
+grid live during the run; the `~/build_mesh` service call ends up
+saving the already-built mesh via `/nvblox_node/save_ply` instead of
+running a CPU reconstruction. The output is per-vertex colored
+natively, so the `colorize_mesh:=true` hook is a no-op.
+
+Setup (one-time, NVIDIA hardware only):
+```sh
+# Either install isaac_ros_nvblox from source (Humble/Iron):
+#   https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_nvblox
+# Or use the NVIDIA pre-built Docker image (Jetson):
+#   nvidia/isaac-ros-dev-aarch64
+```
+
+Without `nvblox_ros` installed, `mesh_method:=nvblox` fails fast at
+launch with a clear "package not found" error and the user can switch
+to `mesh_method:=tsdf` for the CPU-equivalent path.
 
 The same backend selection is available offline through the CLI in the
 SLAM submodule:

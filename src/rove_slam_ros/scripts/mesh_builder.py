@@ -228,6 +228,11 @@ class MeshBuilder(Node):
         return response
 
     def _do_build(self) -> Path:
+        # nvblox runs as a sibling node that has been integrating live;
+        # mesh "build" is just a save-to-PLY service call.
+        if self.method == "nvblox":
+            return self._do_build_nvblox()
+
         # Snapshot what we have.
         with self._poses_lock:
             poses_snapshot = list(self._poses)
@@ -293,6 +298,52 @@ class MeshBuilder(Node):
             colored = self._colorize_mesh(mesh_path, traj_path)
             if colored is not None:
                 return colored
+        return mesh_path
+
+    def _do_build_nvblox(self) -> Path:
+        """Save nvblox's live-accumulated mesh via the save_ply service.
+
+        Assumes a `nvblox_node` is already running in the same ROS graph
+        (brought up by nvblox.launch.py). nvblox has been integrating
+        every scan + image as they arrived — this is purely a save call.
+        """
+        mesh_path = self.output_dir / "mesh_nvblox.ply"
+        try:
+            # nvblox_msgs/srv/FilePath: {string file_path → bool success, string message}
+            from nvblox_msgs.srv import FilePath
+        except ImportError as e:
+            raise RuntimeError(
+                "nvblox_msgs not available — install isaac_ros_nvblox or "
+                "pick a different mesh_method (poisson | tsdf). "
+                f"({e})"
+            )
+        client = self.create_client(FilePath, "/nvblox_node/save_ply")
+        if not client.wait_for_service(timeout_sec=5.0):
+            raise RuntimeError(
+                "/nvblox_node/save_ply not advertised — is nvblox_node running? "
+                "Launch with nvblox.launch.py alongside SLAM."
+            )
+        req = FilePath.Request()
+        req.file_path = str(mesh_path)
+        self.get_logger().info(f"requesting nvblox save_ply → {mesh_path}")
+        t0 = time.time()
+        future = client.call_async(req)
+        rclpy.spin_until_future_complete(self, future, timeout_sec=30.0)
+        elapsed = time.time() - t0
+        if not future.done() or future.result() is None:
+            raise RuntimeError("nvblox save_ply did not return in 30s")
+        resp = future.result()
+        if not resp.success:
+            raise RuntimeError(f"nvblox save_ply failed: {resp.message}")
+        self.get_logger().info(
+            f"nvblox mesh saved in {elapsed:.1f}s → {mesh_path}"
+        )
+        # nvblox produces a per-vertex-colored mesh natively, so we
+        # skip the color_mesh.py post-process even when colorize=true.
+        if self.colorize:
+            self.get_logger().info(
+                "nvblox mesh is already colored; skipping color_mesh.py."
+            )
         return mesh_path
 
     def _colorize_mesh(self, mesh_path: Path, traj_path: Path) -> Path | None:
