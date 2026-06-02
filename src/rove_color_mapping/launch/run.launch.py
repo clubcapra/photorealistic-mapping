@@ -78,9 +78,9 @@ def generate_launch_description():
     )
     return LaunchDescription([
         livox_launch,
-        vectornav_launch,
+        # vectornav_launch,
         robot_state_publisher,
-        rtabmap_lidar_launch,
+        # rtabmap_lidar_launch,
         gscam_launch,
         # nav2_launch
     ])

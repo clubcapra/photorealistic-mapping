@@ -631,28 +631,28 @@
   </link>
   <joint name="chinese_camera_optical_joint" type="fixed">
     <parent link="chinese_camera"/>
-    <child link="chinese_camera_optical_frame"/>
+    <child link="cam_north_optical_frame"/>
     <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
   </joint>
   <joint name="chinese_camera_2_optical_joint" type="fixed">
     <parent link="chinese_camera_2"/>
-    <child link="chinese_camera_2_optical_frame"/>
+    <child link="cam_east_optical_frame"/>
     <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
   </joint>
   <joint name="chinese_camera_3_optical_joint" type="fixed">
     <parent link="chinese_camera_3"/>
-    <child link="chinese_camera_3_optical_frame"/>
+    <child link="cam_south_optical_frame"/>
     <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
   </joint>
   <joint name="chinese_camera_4_optical_joint" type="fixed">
     <parent link="chinese_camera_4"/>
-    <child link="chinese_camera_4_optical_frame"/>
+    <child link="cam_west_optical_frame"/>
     <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
   </joint>
   
-  <link name="chinese_camera_optical_frame"/>
-  <link name="chinese_camera_2_optical_frame"/>
-  <link name="chinese_camera_3_optical_frame"/>
-  <link name="chinese_camera_4_optical_frame"/>
+  <link name="cam_north_optical_frame"/>
+  <link name="cam_east_optical_frame"/>
+  <link name="cam_south_optical_frame"/>
+  <link name="cam_west_optical_frame"/>
 
 </robot>
