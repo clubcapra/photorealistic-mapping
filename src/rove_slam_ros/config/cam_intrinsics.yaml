@@ -12,15 +12,15 @@
 #         --size 9x6 --square 0.025 image:=/cam_<dir>/image_raw
 #
 #   Option B — standalone OpenCV tool shipped with this package
-#     (USB-camera-only, no ROS topic): brings up a live window, lets
-#     you press SPACE on detected boards, C to compute, U to preview
-#     the undistorted feed:
-#     ros2 run rove_slam_ros calibrate_camera.py
-#     The default chessboard is 9x6 inner corners, 24 mm squares —
-#     edit PATTERN_SIZE / SQUARE_SIZE at the top of the script to match
-#     your printout. Output is a calibration.npz; copy its
-#     camera_matrix → fx/fy/cx/cy and dist_coeffs → D into the matching
-#     block below.
+#     (works on USB cams AND IP cams; bypasses ROS): brings up a live
+#     window, lets you press SPACE on detected boards, C to compute,
+#     U to preview the undistorted feed:
+#     ros2 run rove_slam_ros calibrate_camera.py                # default cam 0
+#     ros2 run rove_slam_ros calibrate_camera.py --source 2     # second USB cam
+#     ros2 run rove_slam_ros calibrate_camera.py --source rtsp://user:pass@host:554/stream
+#     ros2 run rove_slam_ros calibrate_camera.py --pattern 9x6 --square 24
+#     Output is a calibration.npz; copy its camera_matrix → fx/fy/cx/cy
+#     and dist_coeffs → D into the matching block below.
 #
 # Distortion models supported by color_mesh.py:
 #   plumb_bob     5 coeffs (k1, k2, p1, p2, k3) — typical for pinhole cams

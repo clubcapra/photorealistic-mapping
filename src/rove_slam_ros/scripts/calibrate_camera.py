@@ -30,8 +30,29 @@ Keys
   U     : toggle undistorted live preview (after calibration)
   X     : delete the most recently saved capture
   Q/ESC : quit
+
+Examples
+--------
+  # Default — local USB camera index 0
+  calibrate_camera.py
+
+  # Different USB camera
+  calibrate_camera.py --source 2
+
+  # IP camera over RTSP
+  calibrate_camera.py --source rtsp://user:pass@192.168.1.42:554/stream1
+
+  # IP camera HTTP MJPEG stream
+  calibrate_camera.py --source http://192.168.1.42:8080/video
+
+  # Re-calibrate from a folder you've already collected
+  calibrate_camera.py --capture-dir my_caps --out my_caps/cam.npz
+
+  # Different chessboard
+  calibrate_camera.py --pattern 9x6 --square 24
 """
 
+import argparse
 import os
 import glob
 import time
@@ -41,15 +62,46 @@ import cv2
 import numpy as np
 
 # --------------------------------------------------------------------------- #
-# Configuration
+# Configuration (defaults — every value below is overridable via CLI flags)
 # --------------------------------------------------------------------------- #
-CAMERA_INDEX   = 0                 # which camera to open
+CAMERA_SOURCE  = 0                 # local USB cam index, or an IP-cam URL string
 PATTERN_SIZE   = (9, 6)            # INNER corners (cols, rows). 10x7 squares -> (9, 6)
 SQUARE_SIZE    = 24.0              # real-world square edge length (mm, or any unit)
 CAPTURE_DIR    = "calib_captures"  # where clean captures are stored
 CALIB_FILE     = "calibration.npz" # where intrinsics are saved
 DETECT_SCALE   = 0.5               # downscale factor used only for live detection (speed)
 # --------------------------------------------------------------------------- #
+
+
+def parse_source(s):
+    """Accept '0' / '2' as local USB index (int) and everything else as a
+    URL/path string passed straight through to cv2.VideoCapture (RTSP, HTTP
+    MJPEG, file path)."""
+    try:
+        return int(s)
+    except (TypeError, ValueError):
+        return s
+
+
+def open_capture(source):
+    """Open cv2.VideoCapture, applying IP-cam-friendly options (1-frame
+    buffer keeps latency low; FFMPEG backend is the safest default for
+    rtsp:// / http:// streams)."""
+    is_url = isinstance(source, str)
+    if is_url:
+        cap = cv2.VideoCapture(source, cv2.CAP_FFMPEG)
+    else:
+        cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        return None
+    # Shrink the driver-side buffer to one frame so live preview shows the
+    # current scene, not a 1-2 s replay. Not all backends honor this; for
+    # IP cams that don't, we drop stale frames in the main loop instead.
+    try:
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    except Exception:
+        pass
+    return cap
 
 
 # --------------------------------------------------------------------------- #
@@ -250,14 +302,61 @@ def draw_hud(img, lines, color=(255, 255, 255)):
 # Main
 # --------------------------------------------------------------------------- #
 def main():
+    # Declared up-front so argparse defaults can reference the module-level
+    # values without triggering Python's "use prior to global declaration".
+    global CALIB_FILE, CAPTURE_DIR, SQUARE_SIZE
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    ap.add_argument(
+        "--source", default=str(CAMERA_SOURCE),
+        help="Camera source. An integer (0, 1, …) opens that USB cam by "
+             "index. Anything else is passed straight to cv2.VideoCapture — "
+             "so RTSP URLs (rtsp://user:pass@host:554/stream), HTTP MJPEG "
+             "(http://host:port/video), or local file paths all work. "
+             f"Default: {CAMERA_SOURCE}.",
+    )
+    ap.add_argument(
+        "--pattern", default=f"{PATTERN_SIZE[0]}x{PATTERN_SIZE[1]}",
+        help="Chessboard inner-corner count as COLSxROWS "
+             f"(default {PATTERN_SIZE[0]}x{PATTERN_SIZE[1]}, i.e. a "
+             "10x7-square printed board).",
+    )
+    ap.add_argument(
+        "--square", type=float, default=SQUARE_SIZE,
+        help=f"Real-world square edge length in mm (default {SQUARE_SIZE}).",
+    )
+    ap.add_argument(
+        "--capture-dir", default=CAPTURE_DIR,
+        help=f"Where to save board captures (default {CAPTURE_DIR}).",
+    )
+    ap.add_argument(
+        "--out", default=CALIB_FILE,
+        help=f"Where to write the calibration .npz (default {CALIB_FILE}).",
+    )
+    args = ap.parse_args()
+
+    pattern_size = tuple(int(v) for v in args.pattern.lower().split("x"))
+    if len(pattern_size) != 2:
+        ap.error("--pattern must be COLSxROWS, e.g. 9x6")
+
+    # Globals are read by calibrate_from_folder() / load_calibration() for
+    # the .npz path; rebind so the CLI override flows through.
+    CALIB_FILE = args.out
+    CAPTURE_DIR = args.capture_dir
+    SQUARE_SIZE = args.square
+
     os.makedirs(CAPTURE_DIR, exist_ok=True)
 
-    cap = cv2.VideoCapture(CAMERA_INDEX)
-    if not cap.isOpened():
-        print(f"ERROR: could not open camera index {CAMERA_INDEX}.")
+    source = parse_source(args.source)
+    print(f"[init] opening source: {source!r}")
+    cap = open_capture(source)
+    if cap is None:
+        print(f"ERROR: could not open source {source!r}.")
         return
 
-    detector = ChessboardDetector(PATTERN_SIZE, DETECT_SCALE)
+    detector = ChessboardDetector(pattern_size, DETECT_SCALE)
     detector.start()
 
     # Restore any prior calibration so undistort preview works immediately.
@@ -300,7 +399,7 @@ def main():
             # Overlay is only meaningful on the raw (distorted) frame.
             if found and corners is not None:
                 cv2.drawChessboardCorners(
-                    display, PATTERN_SIZE,
+                    display, pattern_size,
                     corners.astype(np.float32), True)
 
         # HUD
@@ -346,7 +445,7 @@ def main():
             set_status("Calibrating... (see console)")
             cv2.imshow(window, display)
             cv2.waitKey(1)
-            result = calibrate_from_folder(CAPTURE_DIR, PATTERN_SIZE, SQUARE_SIZE)
+            result = calibrate_from_folder(CAPTURE_DIR, pattern_size, SQUARE_SIZE)
             if result is not None:
                 calib = result
                 maps = build_undistort_maps(calib[0], calib[1], calib[3])
