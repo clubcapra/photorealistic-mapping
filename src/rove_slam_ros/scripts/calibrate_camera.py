@@ -45,7 +45,7 @@ import numpy as np
 # --------------------------------------------------------------------------- #
 CAMERA_INDEX   = 0                 # which camera to open
 PATTERN_SIZE   = (9, 6)            # INNER corners (cols, rows). 10x7 squares -> (9, 6)
-SQUARE_SIZE    = 25.0              # real-world square edge length (mm, or any unit)
+SQUARE_SIZE    = 24.0              # real-world square edge length (mm, or any unit)
 CAPTURE_DIR    = "calib_captures"  # where clean captures are stored
 CALIB_FILE     = "calibration.npz" # where intrinsics are saved
 DETECT_SCALE   = 0.5               # downscale factor used only for live detection (speed)

@@ -16,7 +16,7 @@
 #     you press SPACE on detected boards, C to compute, U to preview
 #     the undistorted feed:
 #     ros2 run rove_slam_ros calibrate_camera.py
-#     The default chessboard is 9x6 inner corners, 25 mm squares —
+#     The default chessboard is 9x6 inner corners, 24 mm squares —
 #     edit PATTERN_SIZE / SQUARE_SIZE at the top of the script to match
 #     your printout. Output is a calibration.npz; copy its
 #     camera_matrix → fx/fy/cx/cy and dist_coeffs → D into the matching
