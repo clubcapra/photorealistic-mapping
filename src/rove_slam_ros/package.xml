@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rove_slam_ros</name>
+  <version>0.1.0</version>
+  <description>
+    ROS 2 wrapper for the `rove_slam` lidar-inertial SLAM core
+    (https://github.com/clubcapra/rove_slam, vendored as a git submodule
+    under external/rove_slam). Provides a single ROS 2 node that subscribes
+    to a Livox PointCloud2 + IMU and publishes TF, /odom, and a Z-banded
+    obstacles cloud suitable for nav2. Launch files start either SLAM alone
+    or SLAM + nav2 costmap stack headless.
+  </description>
+
+  <maintainer email="iliana.dc@windo.cleaning">Iliana De Carufel</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_eigen</depend>
+  <depend>eigen</depend>
+
+  <exec_depend>nav2_costmap_2d</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_amcl</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>rosbag2_storage_default_plugins</exec_depend>
+  <exec_depend>ros2bag</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

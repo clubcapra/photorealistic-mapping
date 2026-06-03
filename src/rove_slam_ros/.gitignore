@@ -1,0 +1,9 @@
+# Anything colcon / cmake leaves behind in the package tree when someone
+# builds outside the workspace's top-level build/ install/ (e.g. running
+# `cmake --build build` inside external/rove_slam directly).
+external/rove_slam/build/
+external/rove_slam/build-*/
+external/rove_slam/build_ros/
+external/rove_slam/.cache/
+external/rove_slam/compile_commands.json
+external/rove_slam/.venv/

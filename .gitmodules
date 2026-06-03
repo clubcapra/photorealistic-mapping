@@ -6,3 +6,6 @@
 	path = src/navigation2
 	url = https://github.com/ros-navigation/navigation2.git
 	branch = humble
+[submodule "src/rove_slam_ros/external/rove_slam"]
+	path = src/rove_slam_ros/external/rove_slam
+	url = https://github.com/clubcapra/rove_slam.git

@@ -34,4 +34,28 @@ CMakeLists.txt.user
 # Catkin custom files
 CATKIN_IGNORE
 
-__pycache__
+__pycache__/
+*.pyc
+*.pyo
+.claude/
+
+# Python venv / tooling
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Misc
+.DS_Store
+compile_commands.json
+.cache/
+
+# Rerun recordings — large, regeneratable
+*.rrd
