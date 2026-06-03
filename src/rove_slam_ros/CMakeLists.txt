@@ -57,6 +57,7 @@ install(PROGRAMS external/rove_slam/tools/cmd_vel_to_rove.py
                 scripts/wait_for_nav.py
                 scripts/mesh_builder.py
                 scripts/color_mesh.py
+                scripts/calibrate_camera.py
         DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch config
