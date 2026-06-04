@@ -39,6 +39,13 @@ __pycache__/
 *.pyo
 .claude/
 
+# Camera calibration runtime artifacts (calibrate_camera.py).
+# The captures + computed .npz are user-specific; the script reproduces
+# them on demand. Keep CAMERA_CALIBRATION.md as the source of truth.
+calib_captures/
+calibration*.npz
+dump_*.png
+
 # Python venv / tooling
 .venv/
 venv/
