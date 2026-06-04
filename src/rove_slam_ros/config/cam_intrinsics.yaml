@@ -6,6 +6,11 @@
 # through these will be GEOMETRICALLY WRONG until each camera is
 # calibrated and these values are replaced with the real intrinsics.
 #
+# See CAMERA_CALIBRATION.md (sibling of this file) for the end-to-end
+# calibration workflow + an important gotcha about the cardinal cams'
+# vertically-stretched output stream (fy/fx ≈ 1.336 is the EXPECTED
+# value for them — not a bug).
+#
 # Calibration procedure (one-time, per-camera, after the URDF lands):
 #   Option A — ROS camera_calibration package, live with the camera:
 #     ros2 run camera_calibration cameracalibrator \

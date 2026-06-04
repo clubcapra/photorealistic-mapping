@@ -254,6 +254,24 @@ ros2 topic hz /cloud_obstacles # ~2 Hz expected
 ros2 topic echo /costmap/costmap --once | head -10
 ```
 
+## Camera calibration
+
+The wrapper ships [`scripts/calibrate_camera.py`](scripts/calibrate_camera.py),
+a chessboard-based intrinsic calibration GUI that works on USB cams + IP
+cams (RTSP / HTTP MJPEG). Quick start:
+
+```sh
+ros2 run rove_slam_ros calibrate_camera.py --source rtsp://192.168.2.33/
+```
+
+There's a non-obvious gotcha with the cardinal IP cams: their RTSP stream
+is vertically stretched (16:9 sensor → 4:3 output), so a clean
+calibration on the as-streamed input has `fy/fx ≈ 1.336`. This is
+geometrically correct for the stream — **not** a calibration bug — but
+matters when picking a K for downstream consumers. Full discussion + the
+4-cam color-mapping checklist live in
+[CAMERA_CALIBRATION.md](CAMERA_CALIBRATION.md).
+
 ## Known issues
 
 - nav2's `lifecycle_manager_costmap` can hang at `Configuring` on some
@@ -262,3 +280,6 @@ ros2 topic echo /costmap/costmap --once | head -10
 - VN-300 calibration is currently uncalibrated, so IMU plumbing is wired
   but disabled. See the upstream `docs/phase-3.1` for the calibration
   procedure (it's mostly a one-time field-day task).
+- `color_mesh.py` currently supports only `plumb_bob` / `none` distortion
+  models — the cardinal cams need fisheye support before live colors
+  will be geometrically correct. See CAMERA_CALIBRATION.md action items.
