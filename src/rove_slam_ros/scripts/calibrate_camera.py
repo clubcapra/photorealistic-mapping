@@ -185,10 +185,18 @@ class ChessboardDetector(threading.Thread):
 # Calibration
 # --------------------------------------------------------------------------- #
 def build_object_points(pattern_size, square_size):
-    """3D coordinates of the chessboard corners in board space (z = 0)."""
+    """3D coordinates of the chessboard corners in board space (z = 0).
+
+    ``square_size`` may be a scalar (square cells) or a (sx, sy) tuple for
+    rectangular cells — useful when the print is scaled non-uniformly. With
+    a scalar the cell aspect is forced to 1:1; mismatched-aspect cells in
+    that case bleed into fy/fx in the calibration."""
+    sx, sy = (square_size if hasattr(square_size, "__len__")
+              else (square_size, square_size))
     objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
-    objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
-    objp *= square_size
+    grid = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
+    objp[:, 0] = grid[:, 0] * sx
+    objp[:, 1] = grid[:, 1] * sy
     return objp
 
 
@@ -401,7 +409,30 @@ def main():
     )
     ap.add_argument(
         "--square", type=float, default=SQUARE_SIZE,
-        help=f"Real-world square edge length in mm (default {SQUARE_SIZE}).",
+        help=f"Real-world square edge length in mm — used for both axes "
+             f"when --square-x / --square-y are not set (default {SQUARE_SIZE}).",
+    )
+    ap.add_argument(
+        "--square-x", type=float, default=None,
+        help="Horizontal cell width in mm. Overrides --square for the x axis. "
+             "Use when your printed cells are rectangular (common when "
+             "'fit to page' rescaled the chessboard non-uniformly) — without "
+             "this the optimizer absorbs the aspect mismatch into fy/fx.",
+    )
+    ap.add_argument(
+        "--square-y", type=float, default=None,
+        help="Vertical cell height in mm. Overrides --square for the y axis.",
+    )
+    ap.add_argument(
+        "--input-resize", default=None,
+        help="Pre-resize each incoming frame to this WxH before display, "
+             "detection, capture, calibration, and undistort. Use when the "
+             "camera is outputting a non-square-pixel stream (e.g. a 16:9 "
+             "sensor stretched to 4:3) — the IP cam at 192.168.2.33 does "
+             "this; calibrate with --input-resize 640x360 to get an "
+             "isotropic K. Without this flag the stream is processed at "
+             "its native resolution (geometrically correct for downstream "
+             "consumers that also see the unresized stream).",
     )
     ap.add_argument(
         "--capture-dir", default=CAPTURE_DIR,
@@ -439,7 +470,11 @@ def main():
     # the .npz path; rebind so the CLI override flows through.
     CALIB_FILE = args.out
     CAPTURE_DIR = args.capture_dir
-    SQUARE_SIZE = args.square
+    sx = args.square_x if args.square_x is not None else args.square
+    sy = args.square_y if args.square_y is not None else args.square
+    SQUARE_SIZE = (sx, sy)
+    if sx != sy:
+        print(f"[init] using rectangular cells: {sx:.2f} x {sy:.2f} mm")
 
     os.makedirs(CAPTURE_DIR, exist_ok=True)
 
@@ -449,6 +484,15 @@ def main():
     if cap is None:
         print(f"ERROR: could not open source {source!r}.")
         return
+
+    resize_to = None
+    if args.input_resize:
+        try:
+            rw, rh = (int(v) for v in args.input_resize.lower().split("x"))
+            resize_to = (rw, rh)
+            print(f"[init] pre-resizing every frame to {rw}x{rh}")
+        except Exception:
+            ap.error("--input-resize must be WxH (e.g. 640x360)")
 
     detector = ChessboardDetector(pattern_size, DETECT_SCALE)
     detector.start()
@@ -479,6 +523,8 @@ def main():
 
     while True:
         ok, frame = cap.read()
+        if ok and resize_to is not None and (frame.shape[1], frame.shape[0]) != resize_to:
+            frame = cv2.resize(frame, resize_to, interpolation=cv2.INTER_AREA)
         if not ok:
             print("ERROR: failed to read frame.")
             break
