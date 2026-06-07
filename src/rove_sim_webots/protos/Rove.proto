@@ -21,7 +21,12 @@ PROTO Rove [
   field SFBool     supervisor      TRUE
   # Override these to swap sensor specs without editing the proto.
   field SFFloat    lidarFreq       10
-  field SFInt32    lidarHorizontal 1800
+  # Density tuned for Webots: real MID-360 uses non-repetitive Risley scanning
+  # (200k pts/s, no fixed layers). Webots only supports rotating-multilayer
+  # lidars, so we approximate with a moderate horizontal x layer grid. Default
+  # values target ~144k pts/s per lidar (~290k total over both at 10 Hz) — a
+  # quarter of an earlier "max-fidelity" config that lagged the system.
+  field SFInt32    lidarHorizontal 900
   field SFInt32    lidarVerticalLayers 16
   field SFFloat    lidarMaxRange   60
   field SFInt32    cameraWidth     640
@@ -145,25 +150,69 @@ PROTO Rove [
         }
       }
 
-      # ---- LiDAR (Livox-equivalent: 360 horiz, +/-15 vert, ~10 Hz) ----
-      # Position matches rove_description sensor.urdf.xacro:
-      # top_link at +0.15 above base, Livox offset (-0.3, 0, 0.13) with pitch +30deg, yaw pi.
-      # Net: roughly (-0.3, 0, 0.28) above base, with pitch +30deg yaw 180deg.
-      DEF LIDAR Pose {
-        translation -0.3 0 0.28
-        rotation 0 1 0 0.5236   # +30deg pitch (yaw pi handled by Lidar layout symmetry)
+      # ---- Two LiDARs (top + bottom on the pole) ----
+      # Positions composed from rove_standard.urdf (recovered from the live
+      # /robot_description, 2026-06-01 bag). Both lidars sit at ~(0.27, 0.21)
+      # in the body XY plane, with the top one at z=0.834 and the bottom one
+      # at z=0.764 (~7 cm vertical separation). They are mounted with
+      # opposite +/-90deg roll about X so their hemispheric coverages combine
+      # to a full sphere.
+      #
+      # Topics:
+      #   /livox/lidar_192_168_2_40  -> top    (rove_lidar)
+      #   /livox/lidar_192_168_2_41  -> bottom (rove_lidar_2)
+      # Matches the bag-naming convention so existing launches' bag_lidar_topic
+      # arg works against sim-recorded bags too.
+
+      # Override note: the URDF (rove_standard.urdf) specifies rpy=(+/-90, 0, 0)
+      # for the two MID-360s (mounted on their sides so 2 lidars combine into a
+      # full sphere). For sim demos we instead mount them UPRIGHT (no rotation)
+      # so each scans a horizontal disc with vertical layers — the conventional
+      # config matching what people expect to see in rviz.
+
+      # Real-Rove mount: TOP lidar upright, BOTTOM lidar upside-down (rolled
+      # 180deg about X). On the real MID-360 (asymmetric -7deg/+52deg vertical
+      # FOV) this doubles the vertical coverage: top sees up, flipped bottom
+      # sees down. In Webots with symmetric vertical FOV the coverage gain is
+      # smaller but the geometry matches the physical robot. XYZ matches
+      # rove_standard.urdf's dji_mid360 / dji_mid360_2 chain.
+      DEF LIDAR_TOP Pose {
+        translation 0.2722 0.2084 0.8343
+        rotation 0 0 1 0
         children [
           Lidar {
             name "rove_lidar"
             translation 0 0 0
-            rotation 0 0 1 3.14159  # yaw pi to mirror real mounting
+            rotation 0 0 1 0
             tiltAngle 0
             horizontalResolution IS lidarHorizontal
-            fieldOfView 6.2831853  # 360 deg
-            verticalFieldOfView 0.5236  # +/- 15 deg (~30 deg total)
+            fieldOfView 6.2831853          # 360 deg horizontal
+            verticalFieldOfView 0.5236     # +/- 15 deg vertical
             numberOfLayers IS lidarVerticalLayers
-            near 0.9
-            minRange 0.9
+            near 0.1
+            minRange 0.1
+            maxRange IS lidarMaxRange
+            defaultFrequency IS lidarFreq
+            type "rotating"
+          }
+        ]
+      }
+
+      DEF LIDAR_BOTTOM Pose {
+        translation 0.2702 0.2090 0.7638
+        rotation 1 0 0 3.14159           # 180deg roll about X => upside-down
+        children [
+          Lidar {
+            name "rove_lidar_2"
+            translation 0 0 0
+            rotation 0 0 1 0
+            tiltAngle 0
+            horizontalResolution IS lidarHorizontal
+            fieldOfView 6.2831853
+            verticalFieldOfView 0.5236
+            numberOfLayers IS lidarVerticalLayers
+            near 0.1
+            minRange 0.1
             maxRange IS lidarMaxRange
             defaultFrequency IS lidarFreq
             type "rotating"
@@ -172,10 +221,13 @@ PROTO Rove [
       }
 
       # ---- IMU triplet (InertialUnit + Accelerometer + Gyro) ----
-      # Mounted at livox_frame so /livox/imu is consistent with real Livox-built-in IMU.
+      # On the real Rove the per-Livox IMUs sit inside each MID-360.
+      # Simplification: one IMU triplet at the body origin (Core). The
+      # roboguard_pi pipeline reads /livox/imu_192_168_2_40 from the TOP
+      # lidar's built-in IMU, so we publish under that name.
       DEF IMU Pose {
-        translation -0.3 0 0.28
-        rotation 0 1 0 0.5236
+        translation 0 0 0
+        rotation 0 0 1 0
         children [
           InertialUnit { name "rove_imu" }
           Accelerometer { name "rove_accel" }
@@ -183,17 +235,52 @@ PROTO Rove [
         ]
       }
 
-      # ---- RGB camera ----
-      DEF CAMERA Pose {
-        translation -0.4 0 0.15
-        rotation 0 0 1 3.14159   # face -X to match real camera mounting (yaw pi)
+      # ---- 4x RGB cameras matching rove_standard.urdf ----
+      # The new system carries four cameras mounted around the pole at
+      # z~0.796, facing N/E/S/W. Names match the URDF link names; topics
+      # match real-bag conventions (/cam_<dir>/image_raw + camera_info).
+      # XYZ/rotation derived by composing the URDF joint chain.
+      DEF CAM_NORTH Pose {
+        translation 0.2710 0.1215 0.7962
+        rotation -1.0000 0.0000 0.0000 1.5708
         children [
           Camera {
-            name "rove_camera"
-            width  IS cameraWidth
-            height IS cameraHeight
-            fieldOfView 1.0
-            near 0.05
+            name "cam_north"
+            width IS cameraWidth height IS cameraHeight
+            fieldOfView 1.0 near 0.05
+          }
+        ]
+      }
+      DEF CAM_EAST Pose {
+        translation 0.3581 0.2094 0.7965
+        rotation -0.5774 -0.5773 0.5773 2.0944
+        children [
+          Camera {
+            name "cam_east"
+            width IS cameraWidth height IS cameraHeight
+            fieldOfView 1.0 near 0.05
+          }
+        ]
+      }
+      DEF CAM_SOUTH Pose {
+        translation 0.2712 0.2975 0.7963
+        rotation 0.0000 -0.7071 0.7071 3.1416
+        children [
+          Camera {
+            name "cam_south"
+            width IS cameraWidth height IS cameraHeight
+            fieldOfView 1.0 near 0.05
+          }
+        ]
+      }
+      DEF CAM_WEST Pose {
+        translation 0.1831 0.2087 0.7963
+        rotation -0.5773 0.5774 -0.5773 2.0944
+        children [
+          Camera {
+            name "cam_west"
+            width IS cameraWidth height IS cameraHeight
+            fieldOfView 1.0 near 0.05
           }
         ]
       }

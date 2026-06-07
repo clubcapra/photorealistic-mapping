@@ -3,11 +3,21 @@
   URDF consumed by webots_ros2_driver to expose Rove's Webots devices as ROS 2 topics.
   Device 'reference' values must match the Webots device names in protos/Rove.proto.
 
-  Topic contract matches rove_rtabmap_tuner expectations:
-    /livox/lidar  (sensor_msgs/PointCloud2, frame livox_frame, ~10 Hz)
-    /livox/imu    (sensor_msgs/Imu,  composed by Ros2IMU plugin, frame livox_frame)
-    /rove/camera/image_raw  (sensor_msgs/Image, optional for RGB-D experiments)
+  Topic contract MATCHES the real Rove (rove_standard.urdf, 2026-06-01 bag):
+    /livox/lidar_192_168_2_40  (sensor_msgs/PointCloud2)
+    /livox/lidar_192_168_2_41  (sensor_msgs/PointCloud2)
+    /livox/imu_192_168_2_40    (sensor_msgs/Imu, top-MID-360's built-in IMU)
+    /cam_north/image_raw  + /cam_north/camera_info  (sensor_msgs/Image, CameraInfo)
+    /cam_east/image_raw   + /cam_east/camera_info
+    /cam_south/image_raw  + /cam_south/camera_info
+    /cam_west/image_raw   + /cam_west/camera_info
     /odom + tf odom -> base_link  (published by RoveDriver from cmd_vel-derived pose)
+
+  Frame names also mirror rove_standard.urdf where practical so RViz config can be
+  shared with the real robot. The robot_state_publisher (driven by rove_standard.urdf)
+  publishes Core <- ... <- dji_mid360 / chinese_camera_* TFs; we use livox_frame /
+  livox_frame_2 in the lidar messages because that's what the Livox driver publishes
+  in real life and what KISS-ICP expects.
 -->
 <robot name="rove">
 
@@ -15,7 +25,8 @@
 
     <device reference="rove_lidar" type="Lidar">
       <ros>
-        <topicName>/livox/lidar</topicName>
+        <!-- TOP lidar — pose composed from rove_standard.urdf dji_mid360 chain -->
+        <topicName>/livox/lidar_192_168_2_40</topicName>
         <alwaysOn>true</alwaysOn>
         <enabled>true</enabled>
         <updateRate>10</updateRate>
@@ -23,13 +34,51 @@
       </ros>
     </device>
 
-    <device reference="rove_camera" type="Camera">
+    <device reference="rove_lidar_2" type="Lidar">
       <ros>
-        <topicName>/rove/camera/image_raw</topicName>
+        <!-- BOTTOM lidar — pose from rove_standard.urdf dji_mid360_2 chain -->
+        <topicName>/livox/lidar_192_168_2_41</topicName>
+        <alwaysOn>true</alwaysOn>
+        <enabled>true</enabled>
+        <updateRate>10</updateRate>
+        <frameName>livox_frame_2</frameName>
+      </ros>
+    </device>
+
+    <device reference="cam_north" type="Camera">
+      <ros>
+        <topicName>/cam_north/image_raw</topicName>
         <alwaysOn>false</alwaysOn>
         <enabled>true</enabled>
-        <updateRate>15</updateRate>
-        <frameName>camera_link</frameName>
+        <updateRate>10</updateRate>
+        <frameName>cam_north_optical_frame</frameName>
+      </ros>
+    </device>
+    <device reference="cam_east" type="Camera">
+      <ros>
+        <topicName>/cam_east/image_raw</topicName>
+        <alwaysOn>false</alwaysOn>
+        <enabled>true</enabled>
+        <updateRate>10</updateRate>
+        <frameName>cam_east_optical_frame</frameName>
+      </ros>
+    </device>
+    <device reference="cam_south" type="Camera">
+      <ros>
+        <topicName>/cam_south/image_raw</topicName>
+        <alwaysOn>false</alwaysOn>
+        <enabled>true</enabled>
+        <updateRate>10</updateRate>
+        <frameName>cam_south_optical_frame</frameName>
+      </ros>
+    </device>
+    <device reference="cam_west" type="Camera">
+      <ros>
+        <topicName>/cam_west/image_raw</topicName>
+        <alwaysOn>false</alwaysOn>
+        <enabled>true</enabled>
+        <updateRate>10</updateRate>
+        <frameName>cam_west_optical_frame</frameName>
       </ros>
     </device>
 
@@ -42,13 +91,13 @@
       </ros>
     </device>
 
-    <!-- Standard IMU plugin composes /livox/imu from InertialUnit + Accel + Gyro. -->
+    <!-- Single IMU triplet at Core, exposed under the real-bag topic name. -->
     <plugin type="webots_ros2_driver::Ros2IMU">
       <enabled>true</enabled>
       <updateRate>200</updateRate>
-      <topicName>/livox/imu</topicName>
+      <topicName>/livox/imu_192_168_2_40</topicName>
       <alwaysOn>true</alwaysOn>
-      <frameName>livox_frame</frameName>
+      <frameName>Core</frameName>
       <inertialUnitName>rove_imu</inertialUnitName>
       <gyroName>rove_gyro</gyroName>
       <accelerometerName>rove_accel</accelerometerName>
@@ -57,11 +106,9 @@
     <!--
       Custom plugin: cmd_vel -> 4-wheel skid-steer motor commands,
       publishes wheel-derived nav_msgs/Odometry on /odom,
-      broadcasts tf odom -> base_link and static base_link -> livox_frame / camera_link.
+      broadcasts tf odom -> base_link and static base_link -> livox_frame / cam_*.
     -->
     <plugin type="rove_sim_webots.rove_driver.RoveDriver">
-      <!-- webots_ros2_driver passes child elements to the plugin's init() as
-           {tag_name: text_content}. NOT <param name="..."> like ros2_control. -->
       <cmd_vel_topic>/cmd_vel</cmd_vel_topic>
       <odom_topic>/odom</odom_topic>
       <wheel_base>0.63</wheel_base>
@@ -69,7 +116,6 @@
       <lidar_frame>livox_frame</lidar_frame>
       <base_frame>base_link</base_frame>
       <odom_frame>odom</odom_frame>
-      <camera_frame>camera_link</camera_frame>
       <publish_static_tf>true</publish_static_tf>
       <publish_ground_truth>true</publish_ground_truth>
       <ground_truth_topic>/ground_truth/odom</ground_truth_topic>
@@ -77,21 +123,17 @@
     </plugin>
   </webots>
 
-  <!-- Frames so TF consumers / rviz / rtabmap can resolve them. -->
+  <!--
+    Frames so TF consumers / RViz can resolve them. base_link is the SLAM/nav root.
+    Core is the real-Rove URDF root — set identity to base_link so rove_standard.urdf
+    TFs (Core <- ... <- dji_mid360_* / chinese_camera_*) all anchor to base_link.
+  -->
   <link name="base_link"/>
-
-  <link name="livox_frame"/>
-  <joint name="livox_joint" type="fixed">
+  <link name="Core"/>
+  <joint name="base_to_core" type="fixed">
     <parent link="base_link"/>
-    <child link="livox_frame"/>
-    <origin xyz="-0.3 0 0.28" rpy="0 0.5236 3.14159"/>
-  </joint>
-
-  <link name="camera_link"/>
-  <joint name="camera_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="camera_link"/>
-    <origin xyz="-0.4 0 0.15" rpy="0 0 3.14159"/>
+    <child link="Core"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
   </joint>
 
 </robot>

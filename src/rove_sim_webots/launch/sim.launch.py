@@ -12,7 +12,7 @@ import os
 import launch
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -47,18 +47,47 @@ def _get_ros2_nodes(port: str = '1234'):
     )
 
     # webots_ros2_driver publishes the 3D Lidar PointCloud2 on
-    # <topicName>/point_cloud — i.e. /livox/lidar/point_cloud. The tuner template
-    # subscribes to /livox/lidar, so republish under that name.
-    lidar_relay = Node(
-        package='topic_tools',
-        executable='relay',
-        name='lidar_relay',
-        arguments=['/livox/lidar/point_cloud', '/livox/lidar'],
-        parameters=[{'use_sim_time': True}],
-        output='screen',
+    # <topicName>/point_cloud. We have two lidars (matching the real Rove's
+    # dual-MID-360 mount). Three relays:
+    #   top lidar  → /livox/lidar_192_168_2_40
+    #   bottom     → /livox/lidar_192_168_2_41
+    #   /livox/lidar alias (= top) for SLAM defaults that hardcode that name.
+    lidar_top_relay = Node(
+        package='topic_tools', executable='relay', name='lidar_top_relay',
+        arguments=['/livox/lidar_192_168_2_40/point_cloud',
+                    '/livox/lidar_192_168_2_40'],
+        parameters=[{'use_sim_time': True}], output='screen',
+    )
+    lidar_bot_relay = Node(
+        package='topic_tools', executable='relay', name='lidar_bot_relay',
+        arguments=['/livox/lidar_192_168_2_41/point_cloud',
+                    '/livox/lidar_192_168_2_41'],
+        parameters=[{'use_sim_time': True}], output='screen',
+    )
+    # Merger: combine the two MID-360 clouds (in their own frames) into a
+    # single /livox/lidar PointCloud2 (frame=livox_frame). Closer to the real
+    # Rove's dual-lidar fusion than the previous "top-only alias" relay.
+    # Run as a plain python3 script - not a console_scripts entry, so no
+    # rebuild is needed when editing the merger logic.
+    merger_script = os.path.normpath(os.path.join(
+        pkg_share, '..', '..', '..', '..',
+        'src', 'rove_sim_webots', 'scripts', 'livox_merger.py'))
+    lidar_merger = ExecuteProcess(
+        cmd=['python3', merger_script, '--ros-args', '-p', 'use_sim_time:=true'],
+        output='screen', name='livox_merger',
+    )
+    # SLAM node subscribes to /imu/data; sim publishes /livox/imu_192_168_2_40
+    # (matches real-bag topic). Relay so the IMU stream reaches SLAM.
+    # rove_slam_node still needs `enable_imu_factor=true` to *use* it, which
+    # isn't yet exposed as a ROS param - but this gets the data flowing.
+    imu_relay = Node(
+        package='topic_tools', executable='relay', name='imu_relay',
+        arguments=['/livox/imu_192_168_2_40', '/imu/data'],
+        parameters=[{'use_sim_time': True}], output='screen',
     )
 
-    return [rove_driver, robot_state_publisher, lidar_relay]
+    return [rove_driver, robot_state_publisher,
+            lidar_top_relay, lidar_bot_relay, lidar_merger, imu_relay]
 
 
 def generate_launch_description():

@@ -120,8 +120,14 @@ class RoveDriver:
         self._base_frame = properties.get('base_frame', 'base_link')
         self._odom_frame = properties.get('odom_frame', 'odom')
         self._lidar_frame = properties.get('lidar_frame', 'livox_frame')
-        self._camera_frame = properties.get('camera_frame', 'camera_link')
         publish_static = str(properties.get('publish_static_tf', 'true')).lower() == 'true'
+        # When SLAM runs alongside the sim, SLAM owns odom -> base_link. If both
+        # publishers write the same TF the buffer alternates between them and
+        # the robot position jumps. Default OFF - the wheel-integrated estimate
+        # still goes out on /odom as a topic for downstream fusers.
+        self._publish_odom_tf = (
+            str(properties.get('publish_odom_tf', 'false')).lower() == 'true'
+        )
 
         cmd_vel_topic = properties.get('cmd_vel_topic', '/cmd_vel')
         odom_topic = properties.get('odom_topic', '/odom')
@@ -153,16 +159,25 @@ class RoveDriver:
         self._tf = TransformBroadcaster(self._node)
         if publish_static:
             self._static_tf = StaticTransformBroadcaster(self._node)
+            # Two lidars matching rove_standard.urdf's dual-MID-360 mount.
+            # Pose chain: Core ← pole_pivot ← pole ← dji_mid360*_pivot ← dji_mid360*.
+            # Composed in Python (see project notes); the proto's LIDAR_TOP /
+            # LIDAR_BOTTOM Pose blocks use the same xyz/rpy.
+            # Real-Rove mount: TOP upright, BOTTOM upside-down (180deg roll
+            # about X). XYZ matches rove_standard.urdf.
+            # Camera TFs are NOT published here — robot_state_publisher
+            # consumes rove_standard.urdf and publishes the full chain to
+            # cam_<dir>_optical_frame on its own.
             self._static_tf.sendTransform([
                 _make_static_tf(
-                    self._base_frame, self._lidar_frame,
-                    xyz=(-0.3, 0.0, 0.28),
-                    rpy=(0.0, 0.5236, math.pi),
+                    self._base_frame, self._lidar_frame,       # top -> livox_frame
+                    xyz=(0.2722, 0.2084, 0.8343),
+                    rpy=(0.0, 0.0, 0.0),
                 ),
                 _make_static_tf(
-                    self._base_frame, self._camera_frame,
-                    xyz=(-0.4, 0.0, 0.15),
-                    rpy=(0.0, 0.0, math.pi),
+                    self._base_frame, 'livox_frame_2',         # bottom, upside-down
+                    xyz=(0.2702, 0.2090, 0.7638),
+                    rpy=(math.pi, 0.0, 0.0),
                 ),
             ])
 
@@ -221,14 +236,15 @@ class RoveDriver:
         odom.twist.twist.angular.z = w
         self._odom_pub.publish(odom)
 
-        tf = TransformStamped()
-        tf.header.stamp = stamp
-        tf.header.frame_id = self._odom_frame
-        tf.child_frame_id = self._base_frame
-        tf.transform.translation.x = self._x
-        tf.transform.translation.y = self._y
-        tf.transform.rotation = q
-        self._tf.sendTransform(tf)
+        if self._publish_odom_tf:
+            tf = TransformStamped()
+            tf.header.stamp = stamp
+            tf.header.frame_id = self._odom_frame
+            tf.child_frame_id = self._base_frame
+            tf.transform.translation.x = self._x
+            tf.transform.translation.y = self._y
+            tf.transform.rotation = q
+            self._tf.sendTransform(tf)
 
         # Ground truth via supervisor.
         if self._gt_pub is not None and self._gt_node is not None:
