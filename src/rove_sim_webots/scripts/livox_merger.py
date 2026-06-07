@@ -49,6 +49,27 @@ def _read_xyz(msg: PointCloud2) -> np.ndarray:
     return pts[np.isfinite(pts).all(axis=1)]
 
 
+def _voxel_density_filter(pts: np.ndarray,
+                          voxel_size: float = 0.25,
+                          min_pts_per_voxel: int = 3) -> np.ndarray:
+    """Drop points whose voxel bin contains fewer than min_pts_per_voxel.
+    Removes stray one-off returns that produce ghost obstacles in the costmap.
+    Original point coordinates are preserved (no downsampling) so wall geometry
+    stays sharp. O(N) via numpy.unique inverse indices.
+
+    Density vs distance for the sim's 900x16 lidar at voxel=0.25 m:
+      d=3 m: ~14 pts/voxel    d=5 m: ~10 pts/voxel
+      d=8 m: ~4 pts/voxel     d=10 m: ~2.5 pts/voxel
+    Min=3 drops singletons but keeps walls out to ~8 m, matching the nav2
+    costmap obstacle_max_range of 8 m on the local costmap."""
+    if pts.shape[0] == 0:
+        return pts
+    keys = np.floor(pts / voxel_size).astype(np.int64)
+    h = keys[:, 0] * 1_000_003 + keys[:, 1] * 1_009 + keys[:, 2]
+    _, inv, counts = np.unique(h, return_inverse=True, return_counts=True)
+    return pts[counts[inv] >= min_pts_per_voxel]
+
+
 def _make_pc2(stamp, frame_id: str, pts: np.ndarray) -> PointCloud2:
     msg = PointCloud2()
     msg.header.stamp = stamp
@@ -98,6 +119,7 @@ class LivoxMerger(Node):
         if self._bottom_pts is not None and self._bottom_pts.size:
             parts.append(self._bottom_pts)
         combined = np.concatenate(parts, axis=0) if parts else top_pts
+        combined = _voxel_density_filter(combined)
         self._pub.publish(_make_pc2(msg.header.stamp, 'livox_frame', combined))
 
 
