@@ -394,11 +394,22 @@ def project_and_sample(
     # Project (optionally distort)
     pts = Pc[valid]
     if dmodel == "plumb_bob" and np.any(D != 0):
-        # Use OpenCV
+        # 5-param plumb_bob — OpenCV's standard projectPoints.
         rvec = np.zeros(3); tvec = np.zeros(3)
         img_pts, _ = cv2.projectPoints(pts.reshape(-1, 1, 3), rvec, tvec, K, D)
         uv = img_pts.reshape(-1, 2)
+    elif dmodel == "equidistant" and np.any(D != 0):
+        # Kannala-Brandt 4-param fisheye — required for the Rove's cardinal
+        # cams. OpenCV's fisheye projector wants (1, N, 3) object points and
+        # the first 4 distortion coefficients (k1, k2, k3, k4) as a column.
+        rvec = np.zeros((3, 1)); tvec = np.zeros((3, 1))
+        Df = np.asarray(D, dtype=np.float64).reshape(-1)[:4].reshape(4, 1)
+        img_pts, _ = cv2.fisheye.projectPoints(
+            pts.reshape(1, -1, 3).astype(np.float64), rvec, tvec, K, Df)
+        uv = img_pts.reshape(-1, 2)
     else:
+        # Distortion-free pinhole projection. Used when D is all zeros or the
+        # model isn't one of the above.
         uv = (pts[:, :2] / pts[:, 2:3]) * np.array([K[0, 0], K[1, 1]]) + np.array([K[0, 2], K[1, 2]])
     u, v = uv[:, 0], uv[:, 1]
     in_img = (u >= 0) & (u < W - 1) & (v >= 0) & (v < H - 1)
