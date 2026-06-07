@@ -5,6 +5,8 @@
 bt_navigator:
   ros__parameters:
 
+    use_sim_time: False
+
     global_frame: new_map
     robot_base_frame: base_link
     odom_topic: /odom
@@ -49,6 +51,8 @@ bt_navigator:
 controller_server:
   ros__parameters:
 
+    use_sim_time: False
+
     controller_frequency: 10.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
@@ -70,13 +74,19 @@ controller_server:
       debug_trajectory_details: True
       min_vel_x: 0.0
       min_vel_y: 0.0
-      max_vel_x: 0.6
+      # Sim skid-steer can't yaw well while rolling — bias DWB toward slower
+      # forward motion + moderate angular changes. Angular cap also kept
+      # modest because KISS-ICP yaw estimate lags during fast rotation
+      # (no IMU integration yet), which makes the controller overshoot.
+      # Raise these back when IMU factor is wired or when running on the
+      # real Rove (tracks slide more than the Cylinder wheels).
+      max_vel_x: 0.3
       max_vel_y: 0.0
-      max_vel_theta: 1.0
+      max_vel_theta: 0.8
       min_speed_xy: 0.0
-      max_speed_xy: 0.6
+      max_speed_xy: 0.3
       min_speed_theta: 0.0
-      acc_lim_x: 1.5
+      acc_lim_x: 1.0
       acc_lim_y: 0.0
       acc_lim_theta: 2.0
       decel_lim_x: -1.5
@@ -108,6 +118,8 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
+
+      use_sim_time: False
       update_frequency: 5.0
       publish_frequency: 2.0
       global_frame: odom
@@ -122,13 +134,21 @@ local_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
+        # Subscribe to the live merged lidar scan (NOT SLAM's persistent
+        # /cloud_obstacles voxel hashmap). The hashmap never forgets points,
+        # so old observations remain after walls disappear. The raw scan
+        # contains only currently-visible points; nav2's raytrace-clearing
+        # then frees the cells along each ray when the wall is gone.
+        # min_obstacle_height filters floor returns; max_obstacle_height
+        # filters ceiling.
         observation_sources: cloud
         cloud:
-          topic: /cloud_obstacles
-          sensor_frame: base_link
+          topic: /livox/lidar
+          sensor_frame: livox_frame
           data_type: PointCloud2
           marking: True
           clearing: True
+          min_obstacle_height: 0.10
           max_obstacle_height: 2.0
           obstacle_max_range: 8.0
           obstacle_min_range: 0.4
@@ -143,6 +163,8 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
+
+      use_sim_time: False
       update_frequency: 1.0
       publish_frequency: 1.0
       global_frame: new_map
@@ -160,13 +182,21 @@ global_costmap:
       obstacle_layer:
         plugin: "nav2_costmap_2d::ObstacleLayer"
         enabled: True
+        # Subscribe to the live merged lidar scan (NOT SLAM's persistent
+        # /cloud_obstacles voxel hashmap). The hashmap never forgets points,
+        # so old observations remain after walls disappear. The raw scan
+        # contains only currently-visible points; nav2's raytrace-clearing
+        # then frees the cells along each ray when the wall is gone.
+        # min_obstacle_height filters floor returns; max_obstacle_height
+        # filters ceiling.
         observation_sources: cloud
         cloud:
-          topic: /cloud_obstacles
-          sensor_frame: base_link
+          topic: /livox/lidar
+          sensor_frame: livox_frame
           data_type: PointCloud2
           marking: True
           clearing: True
+          min_obstacle_height: 0.10
           max_obstacle_height: 2.0
           obstacle_max_range: 12.0
           obstacle_min_range: 0.4
@@ -181,6 +211,8 @@ global_costmap:
 planner_server:
   ros__parameters:
 
+    use_sim_time: False
+
     expected_planner_frequency: 1.0
     planner_plugins: ["GridBased"]
     GridBased:
@@ -191,6 +223,8 @@ planner_server:
 
 behavior_server:
   ros__parameters:
+
+    use_sim_time: False
 
     costmap_topic: local_costmap/costmap_raw
     footprint_topic: local_costmap/published_footprint
@@ -214,6 +248,8 @@ behavior_server:
 
 smoother_server:
   ros__parameters:
+
+    use_sim_time: False
     smoother_plugins: ["simple_smoother"]
     simple_smoother:
       plugin: "nav2_smoother::SimpleSmoother"
@@ -223,6 +259,8 @@ smoother_server:
 
 waypoint_follower:
   ros__parameters:
+
+    use_sim_time: False
 
     loop_rate: 20
     stop_on_failure: false
@@ -235,12 +273,14 @@ waypoint_follower:
 velocity_smoother:
   ros__parameters:
 
+    use_sim_time: False
+
     smoothing_frequency: 20.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    max_velocity: [0.6, 0.0, 1.0]
-    min_velocity: [-0.6, 0.0, -1.0]
-    max_accel: [1.5, 0.0, 2.0]
+    max_velocity: [0.3, 0.0, 0.8]
+    min_velocity: [-0.3, 0.0, -0.8]
+    max_accel: [1.0, 0.0, 2.0]
     max_decel: [-1.5, 0.0, -2.0]
     odom_topic: "odom"
     odom_duration: 0.1

@@ -14,15 +14,22 @@ rove_slam_node:
     # ─── KISS-ICP front-end ───────────────────────────────────────────────
     # Tuned for non-repetitive Livox MID-360 indoor scans. See project
     # memory / docs for rationale.
-    voxel_size_m: 0.30           # voxel hash resolution for SLAM (m)
-    max_range_m: 100.0           # discard points farther than this (m)
-    min_range_m: 2.0             # discard points closer than this (m) —
-                                  # the rover chassis is within ~2 m
+    # NOTE: defaults below are tuned for the Webots sim demo (small indoor
+    # world, narrow-FOV simulated lidar). For real Rove data restore:
+    #   voxel_size_m: 0.30   min_range_m: 2.0   max_range_m: 100.0
+    voxel_size_m: 0.15           # voxel hash resolution for SLAM (m)
+    max_range_m: 30.0            # discard points farther than this (m)
+    min_range_m: 0.5             # discard points closer than this (m) —
+                                  # sim robot is 0.7 m wide (not 2 m like the real Rove)
     max_points_per_voxel: 50     # caps stored points per voxel (jitter ↓)
     deskew: true                 # per-point timestamp deskew when available
     min_intensity: 0.0           # intensity floor (0 keeps everything)
-    urdf_extrinsic: true         # apply the URDF lidar→base transform
-                                  # (rpy=(0, 30°, 180°), xyz=(-0.30, 0, 0.318))
+    # urdf_extrinsic applies an old hardcoded lidar→base transform
+    # (rpy=(0, 30°, 180°), xyz=(-0.30, 0, 0.318)) that matched a single-lidar
+    # mount used on pre-2026-06 bags. The current Rove (rove_standard.urdf,
+    # dual MID-360) has a different mount, and the sim publishes identity
+    # base→livox_frame. Default off — turn on ONLY when replaying old bags.
+    urdf_extrinsic: false
 
     # ─── Obstacles cloud ──────────────────────────────────────────────────
     # nav2 costmap subscribes /cloud_obstacles. We re-publish the SLAM
