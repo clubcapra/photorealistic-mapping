@@ -629,25 +629,32 @@
       </geometry>
     </collision>
   </link>
+  <!-- cam_north: faces +X in world → optical Z must point +X -->
   <joint name="chinese_camera_optical_joint" type="fixed">
-    <parent link="chinese_camera"/>
-    <child link="cam_north_optical_frame"/>
-    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
-  </joint>
-  <joint name="chinese_camera_2_optical_joint" type="fixed">
     <parent link="chinese_camera_2"/>
+    <child link="cam_north_optical_frame"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <!-- cam_east: faces +Y in world → optical Z must point +Y -->
+  <joint name="chinese_camera_2_optical_joint" type="fixed">
+    <parent link="chinese_camera"/>
     <child link="cam_east_optical_frame"/>
-    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
   </joint>
+
+  <!-- cam_south: faces -X in world → optical Z must point -X -->
   <joint name="chinese_camera_3_optical_joint" type="fixed">
-    <parent link="chinese_camera_3"/>
-    <child link="cam_south_optical_frame"/>
-    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
-  </joint>
-  <joint name="chinese_camera_4_optical_joint" type="fixed">
     <parent link="chinese_camera_4"/>
+    <child link="cam_south_optical_frame"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+  </joint>
+
+  <!-- cam_west: faces -Y in world → optical Z must point -Y -->
+  <joint name="chinese_camera_4_optical_joint" type="fixed">
+    <parent link="chinese_camera_3"/>
     <child link="cam_west_optical_frame"/>
-    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
   </joint>
   
   <link name="cam_north_optical_frame"/>

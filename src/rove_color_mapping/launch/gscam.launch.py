@@ -4,10 +4,13 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 import xacro
 
-camera_name = 'front_camera'
-
 config_dir = os.path.join(get_package_share_directory('rove_color_mapping'), 'config')
 params_file = os.path.join(config_dir, 'gscam_test.yaml')
+camera_info_path = os.path.join(
+    get_package_share_directory('rove_color_mapping'),
+    'config', 'camera_info.yaml'
+)
+
 
 def generate_launch_description():
     
@@ -38,7 +41,7 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'gscam_config':    gscam_pipeline.format(url=url),
-                'camera_info_url': f'file://rove_color_mapping/config/camera_info.yaml',
+                'camera_info_url': f'file://{camera_info_path}',
                 'camera_name':     name,
                 'frame_id':        f'{name}_optical_frame',
                 'sync_sink':       False,

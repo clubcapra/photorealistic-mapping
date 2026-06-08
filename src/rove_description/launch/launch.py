@@ -39,7 +39,7 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             name='core_to_base_link',
-            arguments=['--x', '0', '--y', '0', '--z', '0',
+            arguments=['--x', '0.2', '--y', '0.2', '--z', '0.7', #TODO Tweak les valeurs ici pour atteindre les vraies valeurs
                        '--roll', '0', '--pitch', '0', '--yaw', '0',
                        '--frame-id', 'Core',
                        '--child-frame-id', 'base_link'],
