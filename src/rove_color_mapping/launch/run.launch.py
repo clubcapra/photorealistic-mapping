@@ -9,7 +9,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
 
-    # ── Livox Mid360 ─────────────────────────────────────────────────────────
+    # ── Livox Mid360 ───────────────────────────────────────────────────────────────
     livox_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('livox_ros_driver2'),
@@ -19,7 +19,7 @@ def generate_launch_description():
         launch_arguments={'frame_id': 'livox_frame'}.items()
     )
 
-    # ── VectorNav VN300 ──────────────────────────────────────────────────────
+    # ── VectorNav VN300 ────────────────────────────────────────────────────────────
     vectornav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('vectornav_udp_bridge'),
@@ -27,7 +27,7 @@ def generate_launch_description():
         ))
     )
 
-    # ── Nav2 ──────────────────────────────────────────────────────
+    # ── Nav2 ───────────────────────────────────────────────────────────────────────
     nav2_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('rove_color_mapping'),
@@ -35,7 +35,7 @@ def generate_launch_description():
         ))
     )
 
-    # ── Robot State Publisher (Test Rig)────────────────────────────────────────────────
+    # ── Robot State Publisher (Test Rig)────────────────────────────────────────────
     # urdf_file = os.path.join(pkg, 'urdf', 'sensor_mount.urdf.xacro')
     # robot_description = xacro.process_file(urdf_file).toxml()
 
@@ -59,24 +59,14 @@ def generate_launch_description():
         ))
     )
 
-    # ── Use the official RTABMap lidar3d example launch ──────────────────────
+    # ── RTABMap ────────────────────────────────────────────────────────────────────
     # Pass our specific topics and frame into it directly
     rtabmap_lidar_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
             get_package_share_directory('rove_color_mapping'),
-            'launch',
-            'lidar3d.launch.py'
-        )),
-        launch_arguments={
-            'frame_id':            'base_link',
-            'lidar_topic':         '/livox/lidar',
-            'imu_topic':           '/imu/data',
-            'deskewing':           'true',
-            'voxel_size':          '0.01',
-            'qos':                 '1',
-            'expected_update_rate': '15.0',
-        }.items()
-        )
+            'launch', 'rtabmap.launch.py'
+        ))
+    )
 
     return LaunchDescription([
         livox_launch,

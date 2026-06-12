@@ -2,10 +2,31 @@
 
 This repository is more of a test (as of writing these lines) than anything, this is figure to change.
 
+
 ## Prerequisites: 
 - Livox MID 360
 - ROS 2 humble
-- Livox SDK 2
+- Vectornav VN-300
+
+## How to build:
+For first build:
+```bash
+cd src/livox_ros_driver2
+./build.sh humble
+cd ../../
+source install/setup.bash
+```
+For subsequent builds:
+```bash
+colcon build --symlink-install --packages-ignore livox-ros2-driver && source install/setup.bash
+```
+or use alias ``rosbuild`` if on the jetson
+
+## How to run
+
+```bash
+ros2 launch rove_color_mapping run.launch.py
+```
 
 ## Rosbag
 To record a bag, use:
