@@ -1,0 +1,52 @@
+# Camera intrinsics for the Webots SIM cameras (rove_sim_webots).
+#
+# Webots Camera nodes are ideal pinhole — no distortion, square pixels, FOV
+# set by the `fieldOfView` parameter (1.0 rad ~ 57° horizontal in our proto).
+# Compute fx = (W/2) / tan(FOV/2) = 320 / tan(0.5) = 585.76. Same for fy
+# since pixels are square. cx/cy at image center.
+#
+# Use this file with bringup.launch.py when running against the sim:
+#   cam_intrinsics_path:=src/rove_slam_ros/config/cam_intrinsics_sim.yaml
+#
+# For real-Rove (cardinal IP cams) use cam_intrinsics.yaml instead — those
+# are fisheye (equidistant 4-param) at 640x480 stretched.
+
+cam_north_optical_frame:
+  width: 640
+  height: 480
+  fx: 585.7561
+  fy: 585.7561
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_east_optical_frame:
+  width: 640
+  height: 480
+  fx: 585.7561
+  fy: 585.7561
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_south_optical_frame:
+  width: 640
+  height: 480
+  fx: 585.7561
+  fy: 585.7561
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_west_optical_frame:
+  width: 640
+  height: 480
+  fx: 585.7561
+  fy: 585.7561
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
