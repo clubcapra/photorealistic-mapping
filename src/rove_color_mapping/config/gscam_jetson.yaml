@@ -10,6 +10,5 @@ front_camera/gscam_publisher:
       ! videoconvert
       ! video/x-raw,format=RGB
     frame_id: 'camera_link'
-    camera_info_url: ''
     sync_sink: false
     image_encoding: 'rgb8'

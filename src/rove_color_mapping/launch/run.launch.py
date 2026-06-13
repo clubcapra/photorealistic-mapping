@@ -19,6 +19,19 @@ def generate_launch_description():
         launch_arguments={'frame_id': 'livox_frame'}.items()
     )
 
+    lidar_merger = Node(
+        package='rove_color_mapping',
+        executable='lidar_merger',
+        name='lidar_merger',
+        parameters=[{
+            'topic_1': '/livox/lidar_192_168_2_40',
+            'topic_2': '/livox/lidar_192_168_2_41',
+            'output_topic': '/livox/lidar',
+            'output_frame': 'livox_frame',
+        }]
+    )
+
+
     # ── VectorNav VN300 (IMU) ────────────────────────────────────────────────────────────
     vectornav_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(os.path.join(
@@ -26,6 +39,14 @@ def generate_launch_description():
             'launch', 'run.launch.py'
         ))
     )
+
+    core_stabilized_dummy = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='core_stabilized_dummy',
+        arguments=['0', '0', '0', '0', '0', '0', '1', 'Core', 'Core_stabilized']
+    )  
+
 
     # ── Nav2 (costmaps)───────────────────────────────────────────────────────────────────────
     nav2_launch = IncludeLaunchDescription(
@@ -78,9 +99,11 @@ def generate_launch_description():
     )
     return LaunchDescription([
         livox_launch,
+        lidar_merger,
         # vectornav_launch,
+        core_stabilized_dummy, #TODO if vectornav_launch is not commented, comment this line
         robot_state_publisher,
-        # rtabmap_lidar_launch,
+        rtabmap_lidar_launch,
         gscam_launch,
         # nav2_launch
     ])

@@ -96,10 +96,13 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'OdomF2M/ScanSubtractRadius': str(voxel_size_value),
     'OdomF2M/ScanMaxSize': '20000',
     'OdomF2M/BundleAdjustment': 'false',
-    'Icp/CorrespondenceRatio': '0.03'
+    'Icp/CorrespondenceRatio': '0.03',
+    'always_check_imu_tf': False,
+    'guess_frame_id': '',
+
   }
   if imu_used:
-    icp_odometry_parameters['wait_imu_to_init'] = True
+    icp_odometry_parameters['wait_imu_to_init'] = False # TODO Change this back to True when VN300 is connected
 
   rtabmap_parameters = {
     'subscribe_depth': False,
@@ -171,8 +174,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                    'rgbd_cameras': rgbd_cameras}],
       remappings=remappings + [
                 ('scan_cloud', lidar_topic_deskewed),
-                ('rgb/image',    '/front_camera/image_raw'),      # ← add
-                ('rgb/camera_info', '/front_camera/camera_info'), # ← add
+                ('rgb/image',    '/cam_north/image_raw'),      # ← add
+                ('rgb/camera_info', '/cam_north/camera_info'), # ← add
         ],
       arguments=arguments), 
   

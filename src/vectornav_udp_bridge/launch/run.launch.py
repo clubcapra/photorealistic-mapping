@@ -20,7 +20,7 @@ def generate_launch_description():
                               description='IP address of the Capra Rove Pi'),
         DeclareLaunchArgument('udp_port', default_value='5000',
                               description='VectorNav data UDP port'),
-        DeclareLaunchArgument('imu_frame', default_value='imu_link',
+        DeclareLaunchArgument('imu_frame', default_value='vn300_vectornav',
                               description='TF frame for IMU messages'),
         DeclareLaunchArgument('gps_frame', default_value='gps_link',
                               description='TF frame for NavSatFix messages'),
