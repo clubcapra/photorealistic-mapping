@@ -1,0 +1,25 @@
+image_width: 640
+image_height: 480
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [397.24,   0.0,  324.79,
+           0.0,  530.53, 273.13,
+           0.0,    0.0,    1.0]
+distortion_model: equidistant
+distortion_coefficients:
+  rows: 1
+  cols: 4
+  data: [-0.09449, 0.07199, -0.14210, 0.09781]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [397.24,   0.0,  324.79, 0.0,
+           0.0,  530.53, 273.13, 0.0,
+           0.0,    0.0,    1.0,  0.0]

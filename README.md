@@ -18,7 +18,7 @@ source install/setup.bash
 ```
 For subsequent builds:
 ```bash
-colcon build --symlink-install --packages-ignore livox-ros2-driver && source install/setup.bash
+colcon build --symlink-install --packages-ignore livox_ros_driver2 && source install/setup.bash
 ```
 or use alias ``rosbuild`` if on the jetson
 
@@ -34,7 +34,7 @@ To record a bag, use:
 ros2 bag record -a -o my_recording
 ```
 
-To replay a bag to rebuild a rtabmap, use:
+To replay a bag to rebuild a rtabmap map, use:
 ```bash
 ros2 bag play my_recording --topics \
   /livox/lidar \
@@ -54,4 +54,25 @@ ros2 bag play my_recording --topics \
   /tf_static \
   /joint_states \
   /robot_description
+```
+
+
+
+
+Test out rtsp 
+gst-launch-1.0 \
+  rtspsrc location=rtsp://192.168.2.33:554/ latency=0 protocols=tcp \
+    drop-on-latency=true is-live=true \
+  ! application/x-rtp,media=video,encoding-name=H265 \
+  ! rtph265depay \
+  ! h265parse config-interval=-1 \
+  ! avdec_h265 \
+  ! videoconvert \
+  ! queue max-size-buffers=1 leaky=downstream \
+  ! autovideosink sync=false
+```
+
+And then in a seperate terminal run:
+```bash
+ros2 launch rove_color_mapping run.launch.py use_sim_time:=True
 ```

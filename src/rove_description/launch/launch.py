@@ -1,47 +1,60 @@
 import os
-
-import xacro
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
-
 def generate_launch_description():
-    urdf_file_name = "urdf/rove.urdf.xacro"
-    urdf = os.path.join(get_package_share_directory("rove_description"), urdf_file_name)
-
-    doc = xacro.process_file(urdf)
-    robot_desc = doc.toxml()
-
-    return LaunchDescription(
-        [
-            # A GUI to manipulate the joint state values
-            # Node(
-            #     package="joint_state_publisher_gui",
-            #     executable="joint_state_publisher_gui",
-            #     name="joint_state_publisher_gui",
-            # ),
-            Node(
-                package="robot_state_publisher",
-                executable="robot_state_publisher",
-                name="robot_state_publisher",
-                output="screen",
-                parameters=[{"robot_description": robot_desc}],
-                arguments=[urdf],
-            ),
-            Node(
-                package="rviz2",
-                namespace="",
-                executable="rviz2",
-                name="rviz2",
-                arguments=[
-                    "-d"
-                    + os.path.join(
-                        get_package_share_directory("rove_description"),
-                        "rviz",
-                        "conf.rviz",
-                    )
-                ],
-            ),
-        ]
+    urdf_file = os.path.join(
+        get_package_share_directory("rove_description"),
+        "urdf",
+        "rove_standard.urdf"
     )
+
+    with open(urdf_file, "r") as f:
+        robot_desc = f.read()
+
+    return LaunchDescription([
+        Node(
+            package="robot_state_publisher",
+            executable="robot_state_publisher",
+            name="robot_state_publisher",
+            output="screen",
+            parameters=[{"robot_description": robot_desc}],
+        ),
+        Node(
+            package="joint_state_publisher",
+            executable="joint_state_publisher",
+            name="joint_state_publisher",
+        ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='base_to_livox',
+            arguments=['--x', '0', '--y', '0', '--z', '0.1',
+                       '--roll', '0', '--pitch', '0', '--yaw', '0',
+                       '--frame-id', 'base_link',
+                       '--child-frame-id', 'livox_frame'],
+        ),
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='core_to_base_link',
+            arguments=['--x', '0.2', '--y', '0.2', '--z', '0.7', #TODO Tweak les valeurs ici pour atteindre les vraies valeurs
+                       '--roll', '0', '--pitch', '0', '--yaw', '0',
+                       '--frame-id', 'Core',
+                       '--child-frame-id', 'base_link'],
+        ),
+        Node(
+            package="rviz2",
+            namespace="",
+            executable="rviz2",
+            name="rviz2",
+            arguments=[
+                "-d" + os.path.join(
+                    get_package_share_directory("rove_description"),
+                    "rviz",
+                    "conf.rviz",
+                )
+            ],
+        ),
+    ])

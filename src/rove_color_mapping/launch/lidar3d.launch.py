@@ -31,7 +31,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
   imu_topic = LaunchConfiguration('imu_topic')
   imu_used =  imu_topic.perform(context) != ''
   
-  rgbd_image_topic = LaunchConfiguration('rgbd_image_topic')
+  rgbd_image_topic = LaunchConfiguration('rgbd_image_topic', default='')
   rgbd_images_topic = LaunchConfiguration('rgbd_images_topic')
   rgbd_image_used =  rgbd_image_topic.perform(context) != '' or rgbd_images_topic.perform(context) != ''
   rgbd_cameras = 0 if rgbd_images_topic.perform(context) != '' else 1
@@ -70,7 +70,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'use_sim_time': use_sim_time,
     'frame_id': frame_id,
     'qos': LaunchConfiguration('qos'),
-    'approx_sync': rgbd_image_used,
+    'approx_sync': True,
     'wait_for_transform': 0.5,
     # RTAB-Map's internal parameters are strings:
     'Icp/PointToPlane': 'true',
@@ -96,14 +96,18 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'OdomF2M/ScanSubtractRadius': str(voxel_size_value),
     'OdomF2M/ScanMaxSize': '20000',
     'OdomF2M/BundleAdjustment': 'false',
-    'Icp/CorrespondenceRatio': '0.03'
+    'Icp/CorrespondenceRatio': '0.03',
+    'always_check_imu_tf': False,
+    'guess_frame_id': '',
+
   }
   if imu_used:
-    icp_odometry_parameters['wait_imu_to_init'] = True
+    icp_odometry_parameters['wait_imu_to_init'] = False # TODO Change this back to True when VN300 is connected
 
   rtabmap_parameters = {
     'subscribe_depth': False,
-    'subscribe_rgb': False,
+    'subscribe_rgbd': False,
+    'subscribe_rgb': True,
     'subscribe_odom_info': True,
     'subscribe_scan_cloud': True,
     'map_frame_id': 'new_map',
@@ -126,6 +130,17 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'Grid/NormalsSegmentation': 'true',
     'Grid/FootprintHeight': '0.0',
     'Grid/CellSize': '0.05',
+     # ── Camera projection onto pointcloud ──────────────────────
+    'Grid/Sensor': '1',              # 0=lidar only, 1=camera, 2=both — THIS is the main one
+    'Grid/DepthMax': '20.0',         # max range to colorize (meters)
+    'Grid/DepthMin': '0.1',
+    # ── Assembled colored cloud ────────────────────────────────
+    'cloud_output_voxel_size': '0.01',
+    'RGBD/ProximityBySpace': 'true',
+    # ── Make sure RGB is used for map coloring ─────────────────
+    'Mem/ImagePreDecimation': '1',   # no downscaling before storage
+    'Mem/ImagePostDecimation': '1',  # no downscaling after storage
+    'Mem/SaveDepth16Format': 'false',
   }
   
   arguments = []
@@ -157,7 +172,11 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
       parameters=[shared_parameters, rtabmap_parameters, 
                   {'subscribe_rgbd': rgbd_image_used, 
                    'rgbd_cameras': rgbd_cameras}],
-      remappings=remappings + [('scan_cloud', lidar_topic_deskewed)],
+      remappings=remappings + [
+                ('scan_cloud', lidar_topic_deskewed),
+                ('rgb/image',    '/cam_north/image_raw'),      # ← add
+                ('rgb/camera_info', '/cam_north/camera_info'), # ← add
+        ],
       arguments=arguments), 
   
     Node(
