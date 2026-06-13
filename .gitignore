@@ -67,3 +67,6 @@ compile_commands.json
 
 # Rerun recordings — large, regeneratable
 *.rrd
+
+# Local Livox SDK install (built from src/livox_ros_driver2/Livox-SDK2)
+livox_sdk_install/
