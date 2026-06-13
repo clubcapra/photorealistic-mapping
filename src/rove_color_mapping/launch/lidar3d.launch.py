@@ -31,7 +31,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
   imu_topic = LaunchConfiguration('imu_topic')
   imu_used =  imu_topic.perform(context) != ''
   
-  rgbd_image_topic = LaunchConfiguration('rgbd_image_topic')
+  rgbd_image_topic = LaunchConfiguration('rgbd_image_topic', default='')
   rgbd_images_topic = LaunchConfiguration('rgbd_images_topic')
   rgbd_image_used =  rgbd_image_topic.perform(context) != '' or rgbd_images_topic.perform(context) != ''
   rgbd_cameras = 0 if rgbd_images_topic.perform(context) != '' else 1

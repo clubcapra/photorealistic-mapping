@@ -27,7 +27,8 @@ setup(
         'console_scripts': [
             'imu_wrapper = rove_color_mapping.imu_wrapper:main',
             'lidar_wrapper = rove_color_mapping.lidar_wrapper:main',
-            'lidar_merger = rove_color_mapping.lidar_merger:main' 
+            'lidar_merger = rove_color_mapping.lidar_merger:main',
+            'local_map_node = rove_color_mapping.local_map_node:main' 
         ],
     },
 )

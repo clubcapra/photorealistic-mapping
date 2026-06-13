@@ -2,8 +2,12 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 import os
 from ament_index_python.packages import get_package_share_directory
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
+
+    use_sim_time = LaunchConfiguration('use_sim_time', default=False)
+
     params = os.path.join(
         get_package_share_directory('rove_color_mapping'),
         'config', 'nav2_costmap.yaml'
@@ -32,7 +36,7 @@ def generate_launch_description():
         name='lifecycle_manager_costmap',
         output='screen',
         parameters=[{
-            'use_sim_time': False,
+            'use_sim_time': use_sim_time,
             'autostart': True,
             'node_names': ['costmap/costmap']
         }]

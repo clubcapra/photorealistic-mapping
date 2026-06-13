@@ -34,7 +34,7 @@ To record a bag, use:
 rosbag record -a -O my_recording.bag
 ```
 
-To replay a bag to rebuild a rtabmap, use:
+To replay a bag to rebuild a rtabmap map, use:
 ```bash
 rosbag play my_recording.bag --topics \
   /livox/lidar \
@@ -70,3 +70,9 @@ gst-launch-1.0 \
   ! videoconvert \
   ! queue max-size-buffers=1 leaky=downstream \
   ! autovideosink sync=false
+```
+
+And then in a seperate terminal run:
+```bash
+ros2 launch rove_color_mapping run.launch.py use_sim_time:=True
+```

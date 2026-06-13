@@ -313,6 +313,14 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
+        track_rl:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
+        track_rr:
+          Alpha: 1
+          Show Axes: false
+          Show Trail: false
       Mass Properties:
         Inertia: false
         Mass: false
