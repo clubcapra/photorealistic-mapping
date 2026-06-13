@@ -1,0 +1,73 @@
+# Camera intrinsics for color_mesh.py.
+#
+# *** PLACEHOLDER VALUES ***
+# These are 90°-HFOV defaults computed from the image resolution alone
+# (fx = fy = W/2, cx = W/2, cy = H/2, no distortion). Colors projected
+# through these will be GEOMETRICALLY WRONG until each camera is
+# calibrated and these values are replaced with the real intrinsics.
+#
+# See CAMERA_CALIBRATION.md (sibling of this file) for the end-to-end
+# calibration workflow + an important gotcha about the cardinal cams'
+# vertically-stretched output stream (fy/fx ≈ 1.336 is the EXPECTED
+# value for them — not a bug).
+#
+# Calibration procedure (one-time, per-camera, after the URDF lands):
+#   Option A — ROS camera_calibration package, live with the camera:
+#     ros2 run camera_calibration cameracalibrator \
+#         --size 9x6 --square 0.025 image:=/cam_<dir>/image_raw
+#
+#   Option B — standalone OpenCV tool shipped with this package
+#     (works on USB cams AND IP cams; bypasses ROS): brings up a live
+#     window, lets you press SPACE on detected boards, C to compute,
+#     U to preview the undistorted feed:
+#     ros2 run rove_slam_ros calibrate_camera.py                # default cam 0
+#     ros2 run rove_slam_ros calibrate_camera.py --source 2     # second USB cam
+#     ros2 run rove_slam_ros calibrate_camera.py --source rtsp://user:pass@host:554/stream
+#     ros2 run rove_slam_ros calibrate_camera.py --pattern 9x6 --square 24
+#     Output is a calibration.npz; copy its camera_matrix → fx/fy/cx/cy
+#     and dist_coeffs → D into the matching block below.
+#
+# Distortion models supported by color_mesh.py:
+#   plumb_bob     5 coeffs (k1, k2, p1, p2, k3) — typical for pinhole cams
+#   none          no distortion correction (fastest, fine for narrow FOV)
+#   equidistant   not implemented yet (fisheye)
+
+cam_north_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_east_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_south_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+cam_west_optical_frame:
+  width: 640
+  height: 480
+  fx: 320.0
+  fy: 320.0
+  cx: 320.0
+  cy: 240.0
+  distortion_model: none
+  D: [0.0, 0.0, 0.0, 0.0, 0.0]

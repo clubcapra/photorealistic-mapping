@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rove_rtabmap_tuner</name>
+  <version>0.0.1</version>
+  <description>Automated RTAB-Map parameter tuning harness: replay a rosbag with multiple parameter sets and score the resulting maps.</description>
+  <maintainer email="iliana.dc@windo.cleaning">iliana</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+
+  <!-- Optuna is not in Ubuntu apt or rosdep's default keys; install with
+       `pip install optuna` (see README.md). The exec_depend below documents
+       intent so future tooling can resolve it once a key exists. -->
+  <exec_depend>python3-optuna</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

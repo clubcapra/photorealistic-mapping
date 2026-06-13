@@ -34,4 +34,35 @@ CMakeLists.txt.user
 # Catkin custom files
 CATKIN_IGNORE
 
-__pycache__
+__pycache__/
+*.pyc
+*.pyo
+.claude/
+
+# Camera calibration runtime artifacts (calibrate_camera.py).
+# The captures + computed .npz are user-specific; the script reproduces
+# them on demand. Keep CAMERA_CALIBRATION.md as the source of truth.
+calib_captures/
+calibration*.npz
+dump_*.png
+
+# Python venv / tooling
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Misc
+.DS_Store
+compile_commands.json
+.cache/
+
+# Rerun recordings — large, regeneratable
+*.rrd

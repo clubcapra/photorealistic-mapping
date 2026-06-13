@@ -1,0 +1,33 @@
+rove_slam_node:
+  ros__parameters:
+    # ─── Frames ───────────────────────────────────────────────────────────
+    # Standard nav2-friendly frame chain: <map_frame> → odom → base_link.
+    # We default to `new_map` (not `map`) for the world frame so the SLAM
+    # tree doesn't compete with any external `map` publisher (e.g. an
+    # existing map_server, or stale `/tf_static` data leaked from a
+    # replayed rosbag). The downstream nav2 costmap in this package is
+    # configured to use `new_map` as its global_frame too.
+    map_frame: "new_map"
+    odom_frame: "odom"
+    base_frame: "base_link"
+
+    # ─── KISS-ICP front-end ───────────────────────────────────────────────
+    # Tuned for non-repetitive Livox MID-360 indoor scans. See project
+    # memory / docs for rationale.
+    voxel_size_m: 0.30           # voxel hash resolution for SLAM (m)
+    max_range_m: 100.0           # discard points farther than this (m)
+    min_range_m: 2.0             # discard points closer than this (m) —
+                                  # the rover chassis is within ~2 m
+    max_points_per_voxel: 50     # caps stored points per voxel (jitter ↓)
+    deskew: true                 # per-point timestamp deskew when available
+    min_intensity: 0.0           # intensity floor (0 keeps everything)
+    urdf_extrinsic: true         # apply the URDF lidar→base transform
+                                  # (rpy=(0, 30°, 180°), xyz=(-0.30, 0, 0.318))
+
+    # ─── Obstacles cloud ──────────────────────────────────────────────────
+    # nav2 costmap subscribes /cloud_obstacles. We re-publish the SLAM
+    # local map as a Z-banded PointCloud2 a few times per second; tweak
+    # the band to match your robot's traversal envelope.
+    obstacle_z_min: 0.10         # floor of the obstacle band (m, world)
+    obstacle_z_max: 1.50         # ceiling of the obstacle band (m, world)
+    obstacle_publish_period_s: 0.5  # re-publish cadence (s)
