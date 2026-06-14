@@ -18,7 +18,7 @@ def generate_launch_description():
             'lidar3d.launch.py'
         )),
         launch_arguments={
-            'frame_id':            'Core',
+            'frame_id':            'base_link',
             'lidar_topic':         '/livox/lidar',
             'imu_topic':           '/imu/data',
             'deskewing':           'true',

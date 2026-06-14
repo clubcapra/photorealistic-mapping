@@ -5,6 +5,14 @@
   <!--  BASE / CHASSIS                                               -->
   <!-- ============================================================ -->
 
+  <link name="base_link"/>
+
+  <joint name="base_link_to_core" type="fixed">
+    <parent link="base_link"/>
+    <child link="Core"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
   <link name="Core">
     <visual>
       <geometry>
@@ -565,7 +573,7 @@
   </joint>
   <link name="cam_south_pivot" />
   <joint name="cam_south_offset" type="fixed">
-    <origin xyz="-0.0149206 -0.0234735 -0.00886397" rpy="-1.5708 5.55112e-17 -1.5708" />
+    <origin xyz="-0.0149206 -0.0234735 -0.00886397" rpy="-1.5708 0 -1.5708" />
     <parent link="cam_south_pivot" />
     <child link="chinese_camera_3" />
   </joint>
@@ -592,7 +600,7 @@
   </joint>
   <link name="cam_east_pivot" />
   <joint name="cam_east_offset" type="fixed">
-    <origin xyz="0.0248549 -0.0148706 -0.0090392" rpy="-1.5708 -2.22045e-16 1.60237e-31" />
+    <origin xyz="0.0248549 -0.0148706 -0.0090392" rpy="-1.5708 0 0" />
     <parent link="cam_east_pivot" />
     <child link="chinese_camera_4" />
   </joint>
@@ -623,7 +631,7 @@
   </joint>
   <link name="cam_body_rear_pivot" />
   <joint name="cam_body_rear_offset" type="fixed">
-    <origin xyz="-0.0228113 -0.00141777 -0.0192583" rpy="-1.5708 -5.55112e-17 -1.5708" />
+    <origin xyz="-0.0228113 -0.00141777 -0.0192583" rpy="-1.5708 0 -1.5708" />
     <parent link="cam_body_rear_pivot" />
     <child link="chinese_camera_5" />
   </joint>
@@ -650,7 +658,7 @@
   </joint>
   <link name="cam_body_front_pivot" />
   <joint name="cam_body_front_offset" type="fixed">
-    <origin xyz="0.031733 -0.000947911 -0.0166233" rpy="-1.5708 5.55112e-17 1.5708" />
+    <origin xyz="0.031733 -0.000947911 -0.0166233" rpy="-1.5708 0 1.5708" />
     <parent link="cam_body_front_pivot" />
     <child link="chinese_camera_6" />
   </joint>
@@ -677,7 +685,7 @@
   </joint>
   <link name="cam_gripper_pivot" />
   <joint name="cam_gripper_offset" type="fixed">
-    <origin xyz="0.00311921 6.66671e-05 0.0217355" rpy="-1.5708 -5.55112e-17 -1.5708" />
+    <origin xyz="0.00311921 6.66671e-05 0.0217355" rpy="-1.5708 0 -1.5708" />
     <parent link="cam_gripper_pivot" />
     <child link="chinese_camera_7" />
   </joint>
@@ -701,7 +709,7 @@
   <joint name="imu_joint" type="fixed">
     <parent link="Core" />
     <child link="vn300_vectornav" />
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <origin xyz="0 -0.14 0.06" rpy="-1.5708  0 1.5708" />
   </joint>
   <link name="vn300_vectornav">
     <visual>
@@ -715,6 +723,17 @@
       </geometry>
     </collision>
   </link>
+
+  <!-- ============================================================ -->
+  <!--  LIVOX FRAME                                                 -->
+  <!-- ============================================================ -->
+
+  <joint name="livox_frame_joint" type="fixed">
+    <parent link="Core"/>
+    <child link="livox_frame"/>
+    <origin xyz="0.2 0.2 0.7" rpy="0 0 0"/>
+  </joint>
+  <link name="livox_frame"/>
 
   <!-- ============================================================ -->
   <!--  CAMERA OPTICAL FRAMES                                        -->

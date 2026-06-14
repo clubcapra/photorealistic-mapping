@@ -102,7 +102,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
 
   }
   if imu_used:
-    icp_odometry_parameters['wait_imu_to_init'] = False # TODO Change this back to True when VN300 is connected
+    icp_odometry_parameters['wait_imu_to_init'] = True # TODO Change this back to True when VN300 is connected
 
   rtabmap_parameters = {
     'subscribe_depth': False,
@@ -122,7 +122,6 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'Mem/STMSize': '30',
     'Reg/Strategy': '1',
     'Icp/CorrespondenceRatio': str(LaunchConfiguration('min_loop_closure_overlap').perform(context)),
-    # 'Grid/Sensor': '1',
     'Grid/RangeMax': '10.0',
     'Grid/MaxGroundHeight': '0.25',
     'Grid/MaxObstacleHeight': '0.80',
@@ -130,16 +129,20 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
     'Grid/NormalsSegmentation': 'true',
     'Grid/FootprintHeight': '0.0',
     'Grid/CellSize': '0.05',
-     # ── Camera projection onto pointcloud ──────────────────────
-    'Grid/Sensor': '1',              # 0=lidar only, 1=camera, 2=both — THIS is the main one
-    'Grid/DepthMax': '20.0',         # max range to colorize (meters)
+    # ── Occupancy grid source ────────────────────────────────────
+    'Grid/Sensor': '0',              # 0=lidar — reliable even when static
+                                     # 1=camera depth (fails without valid projection)
+                                     # 2=both
+    'Grid/DepthMax': '20.0',
     'Grid/DepthMin': '0.1',
-    # ── Assembled colored cloud ────────────────────────────────
+    # ── Assembled coloured cloud ─────────────────────────────────
     'cloud_output_voxel_size': '0.01',
     'RGBD/ProximityBySpace': 'true',
-    # ── Make sure RGB is used for map coloring ─────────────────
-    'Mem/ImagePreDecimation': '1',   # no downscaling before storage
-    'Mem/ImagePostDecimation': '1',  # no downscaling after storage
+    # ── Widen TF tolerance for camera/odom timestamp drift ───────
+    'tf_tolerance': 0.2,           # default 0.1 — camera can lag odom by ~8ms
+    # ── RGB storage for map colouring ────────────────────────────
+    'Mem/ImagePreDecimation': '1',
+    'Mem/ImagePostDecimation': '1',
     'Mem/SaveDepth16Format': 'false',
   }
   

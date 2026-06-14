@@ -27,6 +27,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.qos import (
+    QoSProfile, QoSReliabilityPolicy, QoSDurabilityPolicy, QoSHistoryPolicy
+)
 from nav_msgs.msg import OccupancyGrid
 from std_srvs.srv import Empty
 from rcl_interfaces.srv import SetParameters
@@ -35,6 +38,25 @@ from tf2_ros import Buffer, TransformListener
 from scipy.ndimage import rotate as ndimage_rotate
 import numpy as np
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# ── QoS profiles matching rtabmap's publishers ────────────────────────────────
+# rtabmap publishes maps and info with transient_local so late-joining
+# subscribers receive the last message immediately on connect.
+# A volatile subscriber will never receive anything from a transient_local
+# publisher — they must match.
+QOS_TRANSIENT = QoSProfile(
+    reliability=QoSReliabilityPolicy.RELIABLE,
+    durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+    history=QoSHistoryPolicy.KEEP_LAST,
+    depth=1,
+)
+# Sensor data (imu, scan) uses best-effort
+QOS_SENSOR = QoSProfile(
+    reliability=QoSReliabilityPolicy.BEST_EFFORT,
+    durability=QoSDurabilityPolicy.VOLATILE,
+    history=QoSHistoryPolicy.KEEP_LAST,
+    depth=1,
+)
 
 # ── Settings ──────────────────────────────────────────────────────────────────
 HTTP_HOST   = "0.0.0.0"
@@ -46,7 +68,7 @@ LOCAL_SIZE  = 200
 
 EXPORT_DIR         = "/mnt/ssd/maps"
 RTABMAP_DB         = os.path.expanduser("~/.ros/rtabmap.db")
-RTABMAP_EXPORT_BIN = "/opt/ros/humble/lib/rtabmap_util/rtabmap-export"
+RTABMAP_EXPORT_BIN = "/opt/ros/humble/bin/rtabmap-export"
 CONFIG_PATH        = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "config", "rtabmap.yaml"
 )
@@ -94,15 +116,22 @@ class MappingNode(Node):
         self.tf_buffer   = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        # rtabmap publishes /grid_prob_map and /rtabmap/info with
+        # transient_local durability. A subscriber with the default volatile
+        # profile receives nothing — the QoS must match.
         self.create_subscription(
-            OccupancyGrid, MAP_TOPIC, self._on_map, 1, callback_group=cb
+            OccupancyGrid, MAP_TOPIC, self._on_map,
+            QOS_TRANSIENT, callback_group=cb
         )
 
         try:
             from rtabmap_msgs.msg import Info
+            # /rtabmap/info uses volatile durability unlike /grid_prob_map
             self.create_subscription(
-                Info, "/rtabmap/info", self._on_info, 10, callback_group=cb
+                Info, "/rtabmap/info", self._on_info,
+                10, callback_group=cb
             )
+            self.get_logger().info("Subscribed to /rtabmap/info")
         except Exception:
             self.get_logger().warn("rtabmap_msgs unavailable — node_count disabled")
 
@@ -266,8 +295,10 @@ class MappingNode(Node):
 def action_start(node: MappingNode) -> dict:
     global _mapping_state
     with _state_lock:
-        if _mapping_state == "running":
-            return {"ok": True, "message": "already running"}
+        state = _mapping_state
+    # Only skip if we are certain it is running (not unknown)
+    if state == "running":
+        return {"ok": True, "message": "already running"}
     ok, msg = node.call_empty(node.cli_resume, SVC_RESUME)
     if ok:
         with _state_lock: _mapping_state = "running"
@@ -287,6 +318,12 @@ def action_pause(node: MappingNode) -> dict:
 
 def action_reset(node: MappingNode) -> dict:
     global _mapping_state, _node_count, _loop_closures
+    # Resume first if paused — reset may not fully clear on a paused node
+    with _state_lock:
+        is_paused = _mapping_state == "paused"
+    if is_paused:
+        node.call_empty(node.cli_resume, SVC_RESUME)
+        time.sleep(0.3)
     ok, msg = node.call_empty(node.cli_reset, SVC_RESET)
     if ok:
         with _state_lock:
@@ -314,14 +351,21 @@ def action_export(node: MappingNode, filename) -> dict:
     stem = filename[:-4]
 
     with _state_lock:
-        was_running = _mapping_state == "running"
+        state = _mapping_state
+    # Pause if running or unknown — always safer to pause before export
+    was_running = state in ("running", "unknown")
     if was_running:
         ok, _ = node.call_empty(node.cli_pause, SVC_PAUSE)
         if ok:
             with _state_lock: _mapping_state = "paused"
 
-    cmd = [RTABMAP_EXPORT_BIN, "--cloud_voxel", "0.01", "--cam_proj", "--ply",
-           "--output_dir", EXPORT_DIR, "--output", stem, RTABMAP_DB]
+    cmd = [RTABMAP_EXPORT_BIN,
+           "--scan",                     # export LiDAR scan cloud (not depth/stereo)
+           "--scan_voxel", "0.01",       # voxel downsample
+           "--ply",                      # output format
+           "--output_dir", EXPORT_DIR,
+           "--output",     stem,
+           RTABMAP_DB]
     t0 = time.time()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -579,7 +623,7 @@ def main():
     signal.signal(signal.SIGTERM, _on_signal)
 
     print(f"[mapping_api] listening on :{HTTP_PORT}", flush=True)
-    print(f"[mapping_api] swagger → http://localhost:{HTTP_PORT}/", flush=True)
+    print(f"[mapping_api] swagger → http://<robot-ip>:{HTTP_PORT}/", flush=True)
     print(f"[mapping_api] test   → curl http://<robot-ip>:{HTTP_PORT}/mapping/status", flush=True)
 
     try:
