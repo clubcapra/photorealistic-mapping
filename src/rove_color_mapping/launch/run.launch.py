@@ -102,11 +102,26 @@ def generate_launch_description():
             'launch', 'gscam.launch.py'
         ))
     )
+
+    # rviz2 = Node(
+    #     package="rviz2",
+    #     namespace="",
+    #     executable="rviz2",
+    #     name="rviz2",
+    #     arguments=[
+    #         "-d" + os.path.join(
+    #             get_package_share_directory("rove_description"),
+    #             "rviz",
+    #             "conf.rviz",
+    #         )
+    #     ],
+    # )
+
     return LaunchDescription([
         livox_launch,
         lidar_merger,
-        # vectornav_launch,
-        core_stabilized_dummy, #TODO if vectornav_launch is not commented, comment this line
+        vectornav_launch,
+        # core_stabilized_dummy, #TODO if vectornav_launch is not commented, comment this line
         robot_state_publisher,
         rtabmap_lidar_launch,
         gscam_launch,
