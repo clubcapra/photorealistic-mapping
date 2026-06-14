@@ -90,9 +90,21 @@ class _CamRectifier:
 
         W, H = msg.width, msg.height
         Dk = D[:4].reshape(4, 1)  # fisheye wants exactly 4 coeffs
-        new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
-            K, Dk, (W, H), np.eye(3),
-            balance=self.node.balance, fov_scale=self.node.fov_scale)
+        # Rectified camera matrix:
+        #   'same'    -> reuse the original K, so the rectified image keeps the
+        #                same focal length as the raw camera_info. Anything that
+        #                pairs the RAW info with image_rect (rviz's Camera display
+        #                derives <ns>/camera_info, NOT camera_info_rect) then
+        #                overlays at the correct scale, and rtabmap stays
+        #                consistent too. Avoids the new_fx/fx zoom mismatch.
+        #   'optimal' -> cv2's estimate (zooms in at balance=0), which a raw-info
+        #                consumer projects at the wrong scale (new_fx/fx).
+        if self.node.rect_matrix == 'optimal':
+            new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+                K, Dk, (W, H), np.eye(3),
+                balance=self.node.balance, fov_scale=self.node.fov_scale)
+        else:
+            new_K = K.copy()
         self.map1, self.map2 = cv2.fisheye.initUndistortRectifyMap(
             K, Dk, np.eye(3), new_K, (W, H), cv2.CV_16SC2)
         self._last_K, self._last_D = K.copy(), D.copy()
@@ -111,7 +123,7 @@ class _CamRectifier:
         self.rect_info = info
         self.node.get_logger().info(
             f'[{self.ns}] undistort maps built ({W}x{H}, '
-            f'balance={self.node.balance}).')
+            f'matrix={self.node.rect_matrix}, fx={new_K[0, 0]:.1f}).')
 
     # -- Image: rectify + republish -----------------------------------------
     def on_image(self, msg: Image):
@@ -143,10 +155,14 @@ class FisheyeRectify(Node):
         self.declare_parameter('balance', 0.0)
         self.declare_parameter('fov_scale', 1.0)
         self.declare_parameter('image_qos', 'sensor_data')
+        # 'same' = rectify to the original K (scale matches raw camera_info, so
+        # rviz/rtabmap agree); 'optimal' = cv2 estimate (balance/fov_scale).
+        self.declare_parameter('rect_matrix', 'same')
 
         cams = self.get_parameter('cameras').value
         self.balance = float(self.get_parameter('balance').value)
         self.fov_scale = float(self.get_parameter('fov_scale').value)
+        self.rect_matrix = self.get_parameter('rect_matrix').value
 
         # Intake QoS for image_raw (configurable; best-effort by default so it
         # accepts whatever gscam offers). Output is always RELIABLE.
