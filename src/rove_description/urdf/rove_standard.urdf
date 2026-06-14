@@ -3,15 +3,10 @@
 
   <!-- ============================================================ -->
   <!--  BASE / CHASSIS                                               -->
+  <!--  Core is the root — matches rtabmap frame_id=Core.           -->
+  <!--  base_link is a child for ROS convention and RViz centering. -->
+  <!--  Offset = negated Core.glb centroid [-0.0386, 0.209, 0.115]  -->
   <!-- ============================================================ -->
-
-  <link name="base_link"/>
-
-  <joint name="base_link_to_core" type="fixed">
-    <parent link="base_link"/>
-    <child link="Core"/>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-  </joint>
 
   <link name="Core">
     <visual>
@@ -26,11 +21,17 @@
     </collision>
   </link>
 
+  <joint name="core_to_base_link" type="fixed">
+    <parent link="Core"/>
+    <child link="base_link"/>
+    <origin xyz="-0.0386 0.2090 0.1150" rpy="0 0 0"/>
+  </joint>
+  <link name="base_link"/>
+
   <!-- ============================================================ -->
-  <!--  DRIVE DRUMS  (4x – each uses a pivot/offset pattern)        -->
+  <!--  DRIVE DRUMS  (4x)                                           -->
   <!-- ============================================================ -->
 
-  <!-- Front-Left Drum -->
   <joint name="drum_fl_joint" type="revolute">
     <origin xyz="-0.299777 0.149 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -57,7 +58,6 @@
     </collision>
   </link>
 
-  <!-- Front-Right Drum -->
   <joint name="drum_fr_joint" type="revolute">
     <origin xyz="-0.299777 0.269 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -84,7 +84,6 @@
     </collision>
   </link>
 
-  <!-- Back-Left Drum -->
   <joint name="drum_bl_joint" type="revolute">
     <origin xyz="0.290223 0.149 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -111,7 +110,6 @@
     </collision>
   </link>
 
-  <!-- Back-Right Drum -->
   <joint name="drum_br_joint" type="revolute">
     <origin xyz="0.290223 0.290223 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -142,7 +140,6 @@
   <!--  FLIPPERS  (4x)                                              -->
   <!-- ============================================================ -->
 
-  <!-- Front-Left Flipper -->
   <joint name="flipper_fl_joint" type="revolute">
     <origin xyz="-0.299777 0 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -169,7 +166,6 @@
     </collision>
   </link>
 
-  <!-- Front-Right Flipper -->
   <joint name="flipper_fr_joint" type="revolute">
     <origin xyz="-0.299777 0.418 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -196,7 +192,6 @@
     </collision>
   </link>
 
-  <!-- Back-Left Flipper -->
   <joint name="flipper_bl_joint" type="revolute">
     <origin xyz="0.290223 0 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -223,7 +218,6 @@
     </collision>
   </link>
 
-  <!-- Back-Right Flipper -->
   <joint name="flipper_br_joint" type="revolute">
     <origin xyz="0.290223 0.418 0.0888089" rpy="0 0 0" />
     <parent link="Core" />
@@ -251,11 +245,9 @@
   </link>
 
   <!-- ============================================================ -->
-  <!--  MANIPULATOR ARM  (Base → ASection → JointA → BSection →     -->
-  <!--                    JointB → JointGripper)                    -->
+  <!--  MANIPULATOR ARM                                             -->
   <!-- ============================================================ -->
 
-  <!-- Arm base – rotates around Z (yaw) -->
   <joint name="arm_base_yaw_joint" type="revolute">
     <origin xyz="-0.399414 0.209923 0.221123" rpy="0 0 0" />
     <parent link="Core" />
@@ -282,7 +274,6 @@
     </collision>
   </link>
 
-  <!-- A-Section – shoulder pitch -->
   <joint name="arm_shoulder_pitch_joint" type="revolute">
     <origin xyz="-0.4 0.27 0.388" rpy="0 0 0" />
     <parent link="Base" />
@@ -309,7 +300,6 @@
     </collision>
   </link>
 
-  <!-- JointA – elbow pitch -->
   <joint name="arm_elbow_pitch_joint" type="revolute">
     <origin xyz="-0.7 0.255 0.378" rpy="0 0 0" />
     <parent link="ASection" />
@@ -336,7 +326,6 @@
     </collision>
   </link>
 
-  <!-- B-Section – forearm roll -->
   <joint name="arm_forearm_roll_joint" type="revolute">
     <origin xyz="-0.767647 0.205 0.378" rpy="0 0 0" />
     <parent link="JointA" />
@@ -363,7 +352,6 @@
     </collision>
   </link>
 
-  <!-- JointB – wrist pitch -->
   <joint name="arm_wrist_pitch_joint" type="revolute">
     <origin xyz="-1.1 0.205 0.378" rpy="0 0 0" />
     <parent link="BSection" />
@@ -390,7 +378,6 @@
     </collision>
   </link>
 
-  <!-- JointGripper – gripper roll -->
   <joint name="arm_gripper_roll_joint" type="revolute">
     <origin xyz="-1.1728 0.20415 0.378" rpy="0 0 0" />
     <parent link="JointB" />
@@ -425,8 +412,6 @@
     <origin xyz="0.31746 0.209 0.221123" rpy="0 0 1.5708" />
     <parent link="Core" />
     <child link="sensor_pole_pivot" />
-    <axis xyz="0 0 1" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="sensor_pole_pivot" />
   <joint name="sensor_pole_offset" type="fixed">
@@ -448,16 +433,13 @@
   </link>
 
   <!-- ============================================================ -->
-  <!--  LIDAR  (2x DJI Mid-360, top and bottom facing)             -->
+  <!--  LIDAR  (2x DJI Mid-360)                                    -->
   <!-- ============================================================ -->
 
-  <!-- LiDAR upper (faces up) -->
   <joint name="lidar_upper_joint" type="fixed">
     <origin xyz="-9.31322e-11 -2.66092e-11 0.587" rpy="0 0 0" />
     <parent link="pole" />
     <child link="lidar_upper_pivot" />
-    <axis xyz="0 0 1" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="lidar_upper_pivot" />
   <joint name="lidar_upper_offset" type="fixed">
@@ -478,13 +460,10 @@
     </collision>
   </link>
 
-  <!-- LiDAR lower (faces down) -->
   <joint name="lidar_lower_joint" type="fixed">
     <origin xyz="4.59098e-18 0 0.574" rpy="0 0 0" />
     <parent link="pole" />
     <child link="lidar_lower_pivot" />
-    <axis xyz="0 0 -1" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="lidar_lower_pivot" />
   <joint name="lidar_lower_offset" type="fixed">
@@ -506,16 +485,27 @@
   </link>
 
   <!-- ============================================================ -->
-  <!--  CAMERAS – POLE-MOUNTED  (4x surround + 1x pole side)       -->
+  <!--  LIVOX FRAME                                                 -->
+  <!--  Child of pole, at midpoint between upper and lower LiDAR.  -->
+  <!--  Upper: z=0.587+0.029=0.616  Lower: z=0.574-0.028=0.546    -->
+  <!--  Midpoint: z=(0.616+0.546)/2=0.581                          -->
   <!-- ============================================================ -->
 
-  <!-- Camera West (faces -Y) – pole mounted -->
+  <joint name="livox_frame_joint" type="fixed">
+    <parent link="pole"/>
+    <child link="livox_frame"/>
+    <origin xyz="0 0 0.581" rpy="0 0 0"/>
+  </joint>
+  <link name="livox_frame"/>
+
+  <!-- ============================================================ -->
+  <!--  CAMERAS – POLE-MOUNTED                                      -->
+  <!-- ============================================================ -->
+
   <joint name="cam_west_joint" type="fixed">
     <origin xyz="0.024 0.0730961 0.586861" rpy="0 0 0" />
     <parent link="pole" />
     <child link="cam_west_pivot" />
-    <axis xyz="0 0.23939 0.970923" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="cam_west_pivot" />
   <joint name="cam_west_offset" type="fixed">
@@ -536,13 +526,10 @@
     </collision>
   </link>
 
-  <!-- Camera North (faces +X) – pole mounted -->
   <joint name="cam_north_joint" type="fixed">
     <origin xyz="0.0725343 -0.024 0.587101" rpy="0 0 0" />
     <parent link="pole" />
     <child link="cam_north_pivot" />
-    <axis xyz="0 1 0" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="cam_north_pivot" />
   <joint name="cam_north_offset" type="fixed">
@@ -563,13 +550,10 @@
     </collision>
   </link>
 
-  <!-- Camera South (faces -X) – pole mounted -->
   <joint name="cam_south_joint" type="fixed">
     <origin xyz="-0.0730961 0.024 0.586861" rpy="0 0 0" />
     <parent link="pole" />
     <child link="cam_south_pivot" />
-    <axis xyz="0 -1 0" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="cam_south_pivot" />
   <joint name="cam_south_offset" type="fixed">
@@ -590,7 +574,6 @@
     </collision>
   </link>
 
-  <!-- Camera East (faces +Y) – pole mounted -->
   <joint name="cam_east_joint" type="revolute">
     <origin xyz="-0.024 -0.0727157 0.587006" rpy="0 0 0" />
     <parent link="pole" />
@@ -621,13 +604,10 @@
   <!--  CAMERAS – BODY-MOUNTED                                      -->
   <!-- ============================================================ -->
 
-  <!-- Rear body camera (faces -X side of Core) -->
   <joint name="cam_body_rear_joint" type="fixed">
     <origin xyz="-0.447106 0.216081 0.168303" rpy="0 0 0" />
     <parent link="Core" />
     <child link="cam_body_rear_pivot" />
-    <axis xyz="-0.999548 0.0300528 0" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="cam_body_rear_pivot" />
   <joint name="cam_body_rear_offset" type="fixed">
@@ -648,13 +628,10 @@
     </collision>
   </link>
 
-  <!-- Front body camera (faces +X side of Core, near pole base) -->
   <joint name="cam_body_front_joint" type="fixed">
     <origin xyz="0.31746 0.209 0.192576" rpy="0 0 0" />
     <parent link="Core" />
     <child link="cam_body_front_pivot" />
-    <axis xyz="1 0 0" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="cam_body_front_pivot" />
   <joint name="cam_body_front_offset" type="fixed">
@@ -675,13 +652,10 @@
     </collision>
   </link>
 
-  <!-- Gripper camera (mounted on JointGripper) -->
   <joint name="cam_gripper_joint" type="fixed">
     <origin xyz="-1.1936 0.205 0.4155" rpy="0 0 0" />
     <parent link="JointGripper" />
     <child link="cam_gripper_pivot" />
-    <axis xyz="0 -0.111961 0.993713" />
-    <limit lower="-3.14159" upper="3.14159" effort="10" velocity="1" />
   </joint>
   <link name="cam_gripper_pivot" />
   <joint name="cam_gripper_offset" type="fixed">
@@ -703,13 +677,13 @@
   </link>
 
   <!-- ============================================================ -->
-  <!--  IMU  (VectorNav VN-300, fixed to Core)                      -->
+  <!--  IMU  (VectorNav VN-300)                                     -->
   <!-- ============================================================ -->
 
   <joint name="imu_joint" type="fixed">
     <parent link="Core" />
     <child link="vn300_vectornav" />
-    <origin xyz="0 -0.14 0.06" rpy="-1.5708  0 1.5708" />
+    <origin xyz="0 -0.14 0.06" rpy="-1.5708 0 1.5708" />
   </joint>
   <link name="vn300_vectornav">
     <visual>
@@ -725,43 +699,24 @@
   </link>
 
   <!-- ============================================================ -->
-  <!--  LIVOX FRAME                                                 -->
+  <!--  CAMERA OPTICAL FRAMES                                       -->
   <!-- ============================================================ -->
 
-  <joint name="livox_frame_joint" type="fixed">
-    <parent link="Core"/>
-    <child link="livox_frame"/>
-    <origin xyz="0.2 0.2 0.7" rpy="0 0 0"/>
-  </joint>
-  <link name="livox_frame"/>
-
-  <!-- ============================================================ -->
-  <!--  CAMERA OPTICAL FRAMES                                        -->
-  <!--  (Z points in the direction the camera faces)                -->
-  <!-- ============================================================ -->
-
-  <!-- cam_west: faces -Y in world → optical Z must point -Y -->
   <joint name="cam_west_optical_joint" type="fixed">
     <parent link="chinese_camera_2"/>
     <child link="cam_west_optical_frame"/>
     <origin xyz="0 0 0.1" rpy="0 0 0"/>
   </joint>
-
-  <!-- cam_north: faces +X in world → optical Z must point +X -->
   <joint name="cam_north_optical_joint" type="fixed">
     <parent link="chinese_camera"/>
     <child link="cam_north_optical_frame"/>
     <origin xyz="0 0 0.1" rpy="0 0 0"/>
   </joint>
-
-  <!-- cam_east: faces +Y in world → optical Z must point +Y -->
   <joint name="cam_east_optical_joint" type="fixed">
     <parent link="chinese_camera_4"/>
     <child link="cam_east_optical_frame"/>
     <origin xyz="0 0 0.1" rpy="0 0 0"/>
   </joint>
-
-  <!-- cam_south: faces -X in world → optical Z must point -X -->
   <joint name="cam_south_optical_joint" type="fixed">
     <parent link="chinese_camera_3"/>
     <child link="cam_south_optical_frame"/>
