@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rove_lidar_merger</name>
+  <version>0.0.1</version>
+  <description>Fast C++ merger for the two MID360 lidar clouds: zero-copy byte
+    concatenation, preserves the lidar capture stamp. Replaces the Python
+    rove_color_mapping/lidar_merger, which throttled the 10 Hz lidars to ~3 Hz
+    under load (GIL + per-message (de)serialization).</description>
+  <maintainer email="capra@ens.etsmtl.ca">Capra</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>message_filters</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
