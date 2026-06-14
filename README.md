@@ -28,6 +28,40 @@ or use alias ``rosbuild`` if on the jetson
 ros2 launch rove_color_mapping run.launch.py
 ```
 
+## Run on boot (systemd)
+
+On the robot (Jetson), [`scripts/update_scripts.sh`](scripts/update_scripts.sh)
+installs two **user-level** systemd services so the mapping stack comes up
+automatically on boot:
+
+| Service                        | What it runs                                   |
+|--------------------------------|------------------------------------------------|
+| `rove_mapping_launch.service`  | `ros2 launch rove_color_mapping run.launch.py` |
+| `rove_mapping_api.service`     | `python3 mapping_api.py`                        |
+
+Both run under `ROS_DOMAIN_ID=96` and log to `/mnt/ssd/sftp/log/ros2`.
+
+Prerequisites: the workspace must already be cloned and built at
+`/home/capra/projects/photorealistic-mapping` (the unit files hardcode this
+path), and `/mnt/ssd` must be mounted.
+
+Deploy (run as `capra`, **not** root — it uses `sudo` where needed):
+
+```bash
+./scripts/update_scripts.sh
+```
+
+The script enables user lingering (`loginctl enable-linger capra`) so the
+services start at boot and survive logout, then enables and (re)starts both.
+
+Manage / inspect:
+
+```bash
+systemctl --user status rove_mapping_launch.service
+systemctl --user status rove_mapping_api.service
+journalctl --user -u rove_mapping_launch.service -f
+```
+
 ## Rosbag
 To record a bag, use:
 ```bash
