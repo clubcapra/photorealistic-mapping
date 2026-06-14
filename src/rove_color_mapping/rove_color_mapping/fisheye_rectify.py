@@ -32,6 +32,7 @@ import cv2
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data, QoSProfile, ReliabilityPolicy
+from rcl_interfaces.msg import SetParametersResult
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 
@@ -105,6 +106,13 @@ class _CamRectifier:
                 balance=self.node.balance, fov_scale=self.node.fov_scale)
         else:
             new_K = K.copy()
+        # Runtime-tunable focal scale: zoom about the principal point. Applied
+        # to both the image build and camera_info_rect, so rtabmap stays
+        # self-consistent; in rviz it zooms image_rect relative to the raw-K
+        # overlay. Live-adjustable via `ros2 param set`.
+        new_K = new_K.copy()
+        new_K[0, 0] *= self.node.focal_scale
+        new_K[1, 1] *= self.node.focal_scale
         self.map1, self.map2 = cv2.fisheye.initUndistortRectifyMap(
             K, Dk, np.eye(3), new_K, (W, H), cv2.CV_16SC2)
         self._last_K, self._last_D = K.copy(), D.copy()
@@ -123,7 +131,8 @@ class _CamRectifier:
         self.rect_info = info
         self.node.get_logger().info(
             f'[{self.ns}] undistort maps built ({W}x{H}, '
-            f'matrix={self.node.rect_matrix}, fx={new_K[0, 0]:.1f}).')
+            f'matrix={self.node.rect_matrix}, focal_scale='
+            f'{self.node.focal_scale:.4f}, fx={new_K[0, 0]:.1f}).')
 
     # -- Image: rectify + republish -----------------------------------------
     def on_image(self, msg: Image):
@@ -158,11 +167,15 @@ class FisheyeRectify(Node):
         # 'same' = rectify to the original K (scale matches raw camera_info, so
         # rviz/rtabmap agree); 'optimal' = cv2 estimate (balance/fov_scale).
         self.declare_parameter('rect_matrix', 'same')
+        # Runtime focal multiplier for trial-and-error scale tuning. Live-
+        # adjustable: `ros2 param set /fisheye_rectify focal_scale 1.03`.
+        self.declare_parameter('focal_scale', 1.0)
 
         cams = self.get_parameter('cameras').value
         self.balance = float(self.get_parameter('balance').value)
         self.fov_scale = float(self.get_parameter('fov_scale').value)
         self.rect_matrix = self.get_parameter('rect_matrix').value
+        self.focal_scale = float(self.get_parameter('focal_scale').value)
 
         # Intake QoS for image_raw (configurable; best-effort by default so it
         # accepts whatever gscam offers). Output is always RELIABLE.
@@ -175,7 +188,24 @@ class FisheyeRectify(Node):
 
         self.rectifiers = [_CamRectifier(self, ns, sub_qos, pub_qos)
                            for ns in cams]
+        self.add_on_set_parameters_callback(self._on_set_params)
         self.get_logger().info(f'fisheye_rectify rectifying: {list(cams)}')
+
+    def _on_set_params(self, params):
+        """Live-apply focal_scale (and rect_matrix) without a relaunch."""
+        for p in params:
+            if p.name == 'focal_scale':
+                self.focal_scale = float(p.value)
+            elif p.name == 'rect_matrix':
+                self.rect_matrix = str(p.value)
+            else:
+                continue
+            # Force a map rebuild on the next CameraInfo for every camera.
+            for r in self.rectifiers:
+                r._last_K = None
+            self.get_logger().info(
+                f'param {p.name} -> {p.value} (rebuilding undistort maps)')
+        return SetParametersResult(successful=True)
 
 
 def main(args=None):

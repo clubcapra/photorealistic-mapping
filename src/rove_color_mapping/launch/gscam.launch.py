@@ -33,6 +33,13 @@ RECTIFY_CAMERAS = ['cam_north', 'cam_east', 'cam_south', 'cam_west']
 # source pixels (curved black borders). See note in fisheye_rectify.py.
 RECTIFY_BALANCE = 0.0
 
+# Empirical focal correction multiplying the rectified fx/fy (applied to both
+# image_rect and camera_info_rect, so rtabmap stays consistent). 0.9 lines the
+# lidar overlay up with the camera image; the ~10% offset suggests the IP-cam
+# calibration focal is a bit long (worth a proper recalibration eventually).
+# Live-tunable at runtime: `ros2 param set /fisheye_rectify focal_scale <x>`.
+RECTIFY_FOCAL_SCALE = 0.9
+
 
 def generate_launch_description():
     nodes = []
@@ -64,10 +71,11 @@ def generate_launch_description():
         name='fisheye_rectify',
         output='screen',
         parameters=[{
-            'cameras':   RECTIFY_CAMERAS,
-            'balance':   RECTIFY_BALANCE,
-            'fov_scale': 1.0,
-            'image_qos': 'sensor_data',
+            'cameras':     RECTIFY_CAMERAS,
+            'balance':     RECTIFY_BALANCE,
+            'fov_scale':   1.0,
+            'focal_scale': RECTIFY_FOCAL_SCALE,
+            'image_qos':   'sensor_data',
         }],
     ))
     return LaunchDescription(nodes)
