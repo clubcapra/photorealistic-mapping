@@ -39,7 +39,7 @@ from cv_bridge import CvBridge
 class _CamRectifier:
     """Per-camera state: caches CameraInfo, builds maps, rectifies frames."""
 
-    def __init__(self, node: 'FisheyeRectify', ns: str, image_qos):
+    def __init__(self, node: 'FisheyeRectify', ns: str, sub_qos, pub_qos):
         self.node = node
         self.ns = ns
         self.bridge = node.bridge
@@ -50,15 +50,19 @@ class _CamRectifier:
         self._last_K = None
         self._last_D = None
 
+        # Publish RELIABLE: the consumers (rviz Camera display, rtabmap with
+        # qos=1) subscribe RELIABLE, and a BEST_EFFORT publisher is invisible
+        # to a RELIABLE subscriber. Subscribe BEST_EFFORT so intake works
+        # regardless of how gscam offers image_raw.
         self.pub_img = node.create_publisher(
-            Image, f'{ns}/image_rect', image_qos)
+            Image, f'{ns}/image_rect', pub_qos)
         self.pub_info = node.create_publisher(
-            CameraInfo, f'{ns}/camera_info_rect', 10)
+            CameraInfo, f'{ns}/camera_info_rect', pub_qos)
 
         self.sub_info = node.create_subscription(
             CameraInfo, f'{ns}/camera_info', self.on_info, 10)
         self.sub_img = node.create_subscription(
-            Image, f'{ns}/image_raw', self.on_image, image_qos)
+            Image, f'{ns}/image_raw', self.on_image, sub_qos)
 
         node.get_logger().info(
             f'[{ns}] rectifier up: {ns}/image_raw -> {ns}/image_rect')
@@ -144,14 +148,17 @@ class FisheyeRectify(Node):
         self.balance = float(self.get_parameter('balance').value)
         self.fov_scale = float(self.get_parameter('fov_scale').value)
 
+        # Intake QoS for image_raw (configurable; best-effort by default so it
+        # accepts whatever gscam offers). Output is always RELIABLE.
         qos_name = self.get_parameter('image_qos').value
         if qos_name == 'reliable':
-            image_qos = QoSProfile(depth=10,
-                                   reliability=ReliabilityPolicy.RELIABLE)
+            sub_qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE)
         else:
-            image_qos = qos_profile_sensor_data
+            sub_qos = qos_profile_sensor_data
+        pub_qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE)
 
-        self.rectifiers = [_CamRectifier(self, ns, image_qos) for ns in cams]
+        self.rectifiers = [_CamRectifier(self, ns, sub_qos, pub_qos)
+                           for ns in cams]
         self.get_logger().info(f'fisheye_rectify rectifying: {list(cams)}')
 
 
