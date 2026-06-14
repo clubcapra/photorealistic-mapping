@@ -179,8 +179,8 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
                    'rgbd_cameras': rgbd_cameras}],
       remappings=remappings + [
                 ('scan_cloud', lidar_topic_deskewed),
-                ('rgb/image',    '/cam_north/image_raw'),      # ← add
-                ('rgb/camera_info', '/cam_north/camera_info'), # ← add
+                ('rgb/image',    '/cam_north/image_rect'),         # fisheye-rectified
+                ('rgb/camera_info', '/cam_north/camera_info_rect'), # pinhole, zero-distortion
         ],
       arguments=arguments), 
   

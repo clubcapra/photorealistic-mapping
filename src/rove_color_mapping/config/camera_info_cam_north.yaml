@@ -1,0 +1,34 @@
+# cam_north (FRONT) — fisheye / equidistant (Kannala-Brandt 4-param).
+#
+# NOTE on the cardinal remap: the calibration captures were labelled by the
+# OLD convention, in which the cameras sit 90° CCW from the URDF/rtabmap
+# frames (label "north" = the actual "west"). Applying the corrected cycle
+# (N->W, E->N, S->E, W->S), the front camera (cam_north) takes the
+# calibration originally labelled "east".
+#   Source: calibration "east" — 0.473px RMS.
+image_width: 640
+image_height: 480
+camera_name: cam_north
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [392.5689,   0.0,    328.4165,
+           0.0,     526.1871, 230.6562,
+           0.0,       0.0,      1.0]
+distortion_model: equidistant
+distortion_coefficients:
+  rows: 1
+  cols: 4
+  data: [-0.093653, 0.045687, -0.041767, 0.025161]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [392.5689,   0.0,    328.4165, 0.0,
+           0.0,     526.1871, 230.6562, 0.0,
+           0.0,       0.0,      1.0,    0.0]
