@@ -1,0 +1,12 @@
+[Unit]
+Description=Runs the mapping api
+
+[Service]
+Environment="ROS_LOG_DIR=/mnt/ssd/sftp/log/ros2"
+Environment="ROS_DOMAIN_ID=96"
+ExecStart=/bin/bash -c "source /home/capra/projects/photorealistic-mapping/install/setup.bash && python3 /home/capra/projects/photorealistic-mapping/mapping_api.py"
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target
