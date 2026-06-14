@@ -3,12 +3,26 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import PointCloud2
-import sensor_msgs_py.point_cloud2 as pc2
-from std_msgs.msg import Header
-import numpy as np
 
 
 class LidarMerger(Node):
+    """Merge two Livox MID360 clouds into one.
+
+    Both lidars publish in the same frame with an identical point layout (the
+    driver applies each unit's extrinsics), so merging is a zero-copy byte
+    concatenation — no per-point deserialization. The previous implementation
+    decoded ~40k points/cycle in pure Python, which throttled the 10 Hz lidars
+    to ~1 Hz (and pegged a core), and re-stamped the output with wall-clock-now,
+    injecting the merger's own latency/jitter into the lidar timeline.
+
+    Pairing is "latest of each": publish whenever both units have a fresh cloud,
+    then clear. The units are time-synced (~2.5 ms apart), so the paired clouds
+    are temporally close. This is deliberately simpler/more robust than a
+    timestamp synchronizer, which would silently stop emitting if a lidar clock
+    ever drifted beyond the matching window — a dangerous failure for a SLAM
+    input.
+    """
+
     def __init__(self):
         super().__init__('lidar_merger')
 
@@ -25,6 +39,8 @@ class LidarMerger(Node):
         self.cloud_1 = None
         self.cloud_2 = None
 
+        # Reliable intake to match the Livox driver (a best-effort subscriber
+        # received nothing from it). Output reliable for icp_odometry.
         self.sub_1 = self.create_subscription(
             PointCloud2, topic_1, self.cb_cloud_1, 10)
         self.sub_2 = self.create_subscription(
@@ -44,49 +60,44 @@ class LidarMerger(Node):
         self.try_publish()
 
     def try_publish(self):
-        if self.cloud_1 is None or self.cloud_2 is None:
+        c1, c2 = self.cloud_1, self.cloud_2
+        if c1 is None or c2 is None:
+            return
+        # Consume the pair up front so we never block on stale data.
+        self.cloud_1 = self.cloud_2 = None
+
+        if c1.point_step != c2.point_step or c1.fields != c2.fields:
+            self.get_logger().warn(
+                'Lidar point layouts differ; skipping this frame.')
             return
 
-        try:
-            # Read all fields as raw structured arrays to preserve exact dtype
-            field_names = [f.name for f in self.cloud_1.fields]
-
-            points_1 = np.array(list(pc2.read_points(
-                self.cloud_1, field_names=field_names, skip_nans=True)))
-            points_2 = np.array(list(pc2.read_points(
-                self.cloud_2, field_names=field_names, skip_nans=True)))
-
-            if points_1.size == 0 and points_2.size == 0:
-                return
-            elif points_1.size == 0:
-                merged = points_2
-            elif points_2.size == 0:
-                merged = points_1
-            else:
-                merged = np.concatenate((points_1, points_2), axis=0)
-
-            header = Header()
-            header.stamp = self.get_clock().now().to_msg()
-            header.frame_id = self.output_frame
-
-            out_msg = pc2.create_cloud(header, self.cloud_1.fields, merged)
-            self.pub.publish(out_msg)
-
-        except Exception as e:
-            self.get_logger().warn(f'Merge failed: {e}')
-
-        finally:
-            # Always reset so we don't block on stale data
-            self.cloud_1 = None
-            self.cloud_2 = None
+        out = PointCloud2()
+        # Keep the lidar capture stamp (the later of the two), not now().
+        s1 = c1.header.stamp.sec * 1_000_000_000 + c1.header.stamp.nanosec
+        s2 = c2.header.stamp.sec * 1_000_000_000 + c2.header.stamp.nanosec
+        out.header = c1.header if s1 >= s2 else c2.header
+        out.header.frame_id = self.output_frame
+        out.height = 1
+        out.fields = c1.fields
+        out.is_bigendian = c1.is_bigendian
+        out.point_step = c1.point_step
+        out.is_dense = c1.is_dense and c2.is_dense
+        out.data = bytes(c1.data) + bytes(c2.data)
+        out.width = c1.width + c2.width
+        out.row_step = out.point_step * out.width
+        self.pub.publish(out)
 
 
 def main(args=None):
     rclpy.init(args=args)
     node = LidarMerger()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
