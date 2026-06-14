@@ -12,7 +12,7 @@ def generate_launch_description():
                               description="HTTP port for the debug server"),
         DeclareLaunchArgument("map_topic",    default_value="/grid_prob_map",
                               description="rtabmap occupancy grid topic"),
-        DeclareLaunchArgument("robot_frame",  default_value="base_link",
+        DeclareLaunchArgument("robot_frame",  default_value="Core",
                               description="Robot base TF frame"),
         DeclareLaunchArgument("map_frame",    default_value="new_map",
                               description="Map TF frame"),
