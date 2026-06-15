@@ -1,0 +1,32 @@
+# cam_east — fisheye / equidistant (Kannala-Brandt 4-param).
+#
+# Cardinal remap (see camera_info_cam_north.yaml header): applying the
+# corrected cycle (N->W, E->N, S->E, W->S), cam_east takes the calibration
+# originally labelled "south".
+#   Source: calibration "south" — 0.499px RMS.
+image_width: 640
+image_height: 480
+camera_name: cam_east
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [397.2376,   0.0,    324.7856,
+           0.0,     530.5348, 273.1276,
+           0.0,       0.0,      1.0]
+distortion_model: equidistant
+distortion_coefficients:
+  rows: 1
+  cols: 4
+  data: [-0.094495, 0.071985, -0.142097, 0.097808]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [397.2376,   0.0,    324.7856, 0.0,
+           0.0,     530.5348, 273.1276, 0.0,
+           0.0,       0.0,      1.0,    0.0]

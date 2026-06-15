@@ -28,6 +28,7 @@ setup(
             'imu_wrapper = rove_color_mapping.imu_wrapper:main',
             'lidar_wrapper = rove_color_mapping.lidar_wrapper:main',
             'lidar_merger = rove_color_mapping.lidar_merger:main',
+            'fisheye_rectify = rove_color_mapping.fisheye_rectify:main',
         ],
     },
 )

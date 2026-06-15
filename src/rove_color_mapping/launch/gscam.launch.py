@@ -3,9 +3,8 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
-camera_info_path = os.path.join(
-    get_package_share_directory('rove_color_mapping'),
-    'config', 'camera_info.yaml'
+config_dir = os.path.join(
+    get_package_share_directory('rove_color_mapping'), 'config'
 )
 
 # GStreamer pipeline template
@@ -26,10 +25,27 @@ CAMERAS = [
     ('cam_west',  'rtsp://192.168.2.33:554/'),
 ]
 
+# Which cameras to rectify (publish <ns>/image_rect). Only cam_north feeds
+# rtabmap live; the rest are rectified too so they can be eyeballed in rviz.
+RECTIFY_CAMERAS = ['cam_north', 'cam_east', 'cam_south', 'cam_west']
+
+# cv2.fisheye undistort balance: 0.0 crops to valid pixels, 1.0 keeps all
+# source pixels (curved black borders). See note in fisheye_rectify.py.
+RECTIFY_BALANCE = 0.0
+
+# Empirical focal correction multiplying the rectified fx/fy (applied to both
+# image_rect and camera_info_rect, so rtabmap stays consistent). 0.9 lines the
+# lidar overlay up with the camera image; the ~10% offset suggests the IP-cam
+# calibration focal is a bit long (worth a proper recalibration eventually).
+# Live-tunable at runtime: `ros2 param set /fisheye_rectify focal_scale <x>`.
+RECTIFY_FOCAL_SCALE = 0.9
+
 
 def generate_launch_description():
     nodes = []
     for name, url in CAMERAS:
+        # Each camera has its own (remapped) fisheye calibration.
+        camera_info_path = os.path.join(config_dir, f'camera_info_{name}.yaml')
         nodes.append(Node(
             package='gscam2',
             executable='gscam_main',
@@ -47,4 +63,19 @@ def generate_launch_description():
                 'image_encoding':  'rgb8',
             }],
         ))
+
+    # Fisheye -> pinhole rectification (rtabmap needs rectified RGB).
+    nodes.append(Node(
+        package='rove_color_mapping',
+        executable='fisheye_rectify',
+        name='fisheye_rectify',
+        output='screen',
+        parameters=[{
+            'cameras':     RECTIFY_CAMERAS,
+            'balance':     RECTIFY_BALANCE,
+            'fov_scale':   1.0,
+            'focal_scale': RECTIFY_FOCAL_SCALE,
+            'image_qos':   'sensor_data',
+        }],
+    ))
     return LaunchDescription(nodes)

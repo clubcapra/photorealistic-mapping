@@ -56,7 +56,7 @@ def generate_launch_description():
     )
 
     lidar_merger = Node(
-        package='rove_color_mapping',
+        package='rove_lidar_merger',   # fast C++ merger (holds 10Hz; Python ver throttled to ~2-3Hz)
         executable='lidar_merger',
         name='lidar_merger',
         parameters=[{

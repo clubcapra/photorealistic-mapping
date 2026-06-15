@@ -354,7 +354,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cam_east/image_raw
+        Value: /cam_east/image_rect
       Value: true
       Visibility:
         Camera: true
@@ -394,7 +394,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /livox/lidar_192_168_2_41
+        Value: /livox/lidar
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -428,7 +428,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /livox/lidar_192_168_2_40
+        Value: /livox/lidar
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -443,7 +443,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cam_north/image_raw
+        Value: /cam_north/image_rect
       Value: true
       Visibility:
         Camera: true
@@ -464,7 +464,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cam_south/image_raw
+        Value: /cam_south/image_rect
       Value: true
       Visibility:
         Camera: true
@@ -485,7 +485,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /cam_west/image_raw
+        Value: /cam_west/image_rect
       Value: true
       Visibility:
         Camera: true
