@@ -103,7 +103,7 @@ def launch_setup(context: LaunchContext, *args, **kwargs):
 
   }
   if imu_used:
-    icp_odometry_parameters['wait_imu_to_init'] = True # TODO Change this back to True when VN300 is connected
+    icp_odometry_parameters['wait_imu_to_init'] = False # TODO Change this back to True when VN300 is connected
 
   rtabmap_parameters = {
     'database_path': '/mnt/ssd/sftp/rtabmapdb/rtabmap.db',
