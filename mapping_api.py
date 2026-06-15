@@ -71,12 +71,15 @@ CONFIG_PATH        = os.path.join(
 )
 LAUNCH_LOG_PATH    = "/mnt/ssd/sftp/logs/run_launch.log"
 LAUNCH_PID_PATH    = "/mnt/ssd/sftp/logs/run_launch.pid"
-LAUNCH_CMD         = (
-    "bash -c 'source /opt/ros/humble/setup.bash && "
-    "source /home/nathan/capra/photorealistic-mapping/install/setup.bash && "
-    "ros2 launch rove_color_mapping run.launch.py'"
+_workspace = os.environ.get(
+    "ROVE_WS",
+    "/home/nathan/capra/photorealistic-mapping"  # laptop default
 )
-
+LAUNCH_CMD = (
+    f"bash -c 'source /opt/ros/humble/setup.bash && "
+    f"source {_workspace}/install/setup.bash && "
+    f"ros2 launch rove_color_mapping run.launch.py'"
+)
 SVC_PAUSE     = "/rtabmap/pause"
 SVC_RESUME    = "/rtabmap/resume"
 SVC_RESET     = "/rtabmap/reset"
