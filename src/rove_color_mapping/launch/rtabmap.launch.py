@@ -26,6 +26,8 @@ def generate_launch_description():
             'qos':                 '1',
             'expected_update_rate':'15.0',
             'use_sim_time':         use_sim_time,
+            'rtabmapviz':          'false',
+            'rviz':                'false',
         }.items()
         )
     return LaunchDescription(
