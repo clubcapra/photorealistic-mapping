@@ -1,73 +1,58 @@
 # Camera intrinsics for color_mesh.py.
 #
-# *** PLACEHOLDER VALUES ***
-# These are 90°-HFOV defaults computed from the image resolution alone
-# (fx = fy = W/2, cx = W/2, cy = H/2, no distortion). Colors projected
-# through these will be GEOMETRICALLY WRONG until each camera is
-# calibrated and these values are replaced with the real intrinsics.
+# Each block is one entry per cam_<dir>_optical_frame, with the calibration
+# computed via scripts/calibrate_camera.py against the per-cam captures in
+# calib_captures_by_cam/<dir>/. All four are fisheye (Kannala-Brandt 4-param);
+# distortion_model: equidistant tells color_mesh.py to use cv2.fisheye.projectPoints.
 #
-# See CAMERA_CALIBRATION.md (sibling of this file) for the end-to-end
-# calibration workflow + an important gotcha about the cardinal cams'
-# vertically-stretched output stream (fy/fx ≈ 1.336 is the EXPECTED
-# value for them — not a bug).
+# Resolution: the bag streams are 640x480 (the stretched IP-cam format —
+# fy/fx ~= 1.336 is geometrically correct for this resolution). The
+# 640x360 captures for north/east/west were scaled to 640x480 by
+# multiplying fy and cy by 4/3; the K matrices below describe the
+# bag's native frames directly.
 #
-# Calibration procedure (one-time, per-camera, after the URDF lands):
-#   Option A — ROS camera_calibration package, live with the camera:
-#     ros2 run camera_calibration cameracalibrator \
-#         --size 9x6 --square 0.025 image:=/cam_<dir>/image_raw
-#
-#   Option B — standalone OpenCV tool shipped with this package
-#     (works on USB cams AND IP cams; bypasses ROS): brings up a live
-#     window, lets you press SPACE on detected boards, C to compute,
-#     U to preview the undistorted feed:
-#     ros2 run rove_slam_ros calibrate_camera.py                # default cam 0
-#     ros2 run rove_slam_ros calibrate_camera.py --source 2     # second USB cam
-#     ros2 run rove_slam_ros calibrate_camera.py --source rtsp://user:pass@host:554/stream
-#     ros2 run rove_slam_ros calibrate_camera.py --pattern 9x6 --square 24
-#     Output is a calibration.npz; copy its camera_matrix → fx/fy/cx/cy
-#     and dist_coeffs → D into the matching block below.
-#
-# Distortion models supported by color_mesh.py:
-#   plumb_bob     5 coeffs (k1, k2, p1, p2, k3) — typical for pinhole cams
-#   none          no distortion correction (fastest, fine for narrow FOV)
-#   equidistant   not implemented yet (fisheye)
+# Source: calibration_{north,south,east,west}.npz (repo root).
 
+# NORTH cam (192.168.2.32) — calibrated 0.509px RMS, fisheye model
 cam_north_optical_frame:
   width: 640
   height: 480
-  fx: 320.0
-  fy: 320.0
-  cx: 320.0
-  cy: 240.0
-  distortion_model: none
-  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+  fx: 396.0401
+  fy: 530.3065
+  cx: 324.1765
+  cy: 245.8992
+  distortion_model: equidistant
+  D: [-0.084294, -0.020708, 0.127925, -0.122339]
 
-cam_east_optical_frame:
-  width: 640
-  height: 480
-  fx: 320.0
-  fy: 320.0
-  cx: 320.0
-  cy: 240.0
-  distortion_model: none
-  D: [0.0, 0.0, 0.0, 0.0, 0.0]
-
+# SOUTH cam (192.168.2.33) — calibrated 0.499px RMS, fisheye model
 cam_south_optical_frame:
   width: 640
   height: 480
-  fx: 320.0
-  fy: 320.0
-  cx: 320.0
-  cy: 240.0
-  distortion_model: none
-  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+  fx: 397.2376
+  fy: 530.5348
+  cx: 324.7856
+  cy: 273.1276
+  distortion_model: equidistant
+  D: [-0.094495, 0.071985, -0.142097, 0.097808]
 
+# EAST cam (192.168.2.34) — calibrated 0.473px RMS, fisheye model
+cam_east_optical_frame:
+  width: 640
+  height: 480
+  fx: 392.5689
+  fy: 526.1871
+  cx: 328.4165
+  cy: 230.6562
+  distortion_model: equidistant
+  D: [-0.093653, 0.045687, -0.041767, 0.025161]
+
+# WEST cam (192.168.2.35) — calibrated 0.351px RMS, fisheye model
 cam_west_optical_frame:
   width: 640
   height: 480
-  fx: 320.0
-  fy: 320.0
-  cx: 320.0
-  cy: 240.0
-  distortion_model: none
-  D: [0.0, 0.0, 0.0, 0.0, 0.0]
+  fx: 396.3376
+  fy: 529.5108
+  cx: 345.5652
+  cy: 241.7273
+  distortion_model: equidistant
+  D: [-0.083366, -0.032083, 0.130625, -0.107355]

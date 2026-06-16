@@ -10,6 +10,7 @@ Use this for headless nav smoke tests; use nav.launch.py for debugging.
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
@@ -21,8 +22,13 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument("use_sim_time", default_value="false"),
+        # When running this with sim+SLAM already up separately (e.g. to
+        # pass urdf_extrinsic:=false for the Webots sim), set with_slam:=false
+        # so we don't end up with two SLAMs publishing /cloud_obstacles + /tf.
+        DeclareLaunchArgument("with_slam", default_value="true"),
 
         # 1) SLAM (publishes map → odom → base_link + /cloud_obstacles).
+        # Conditional so callers can supply their own SLAM with custom params.
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
                 PathJoinSubstitution([pkg, "launch", "slam.launch.py"])
@@ -30,6 +36,7 @@ def generate_launch_description():
             launch_arguments={
                 "use_sim_time": LaunchConfiguration("use_sim_time"),
             }.items(),
+            condition=IfCondition(LaunchConfiguration("with_slam")),
         ),
 
         # 2) nav2 stack via the standard launch — well-tested timing.

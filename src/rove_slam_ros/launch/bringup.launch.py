@@ -231,7 +231,9 @@ def generate_launch_description():
                 "method": LaunchConfiguration("mesh_method"),
                 "output_dir": LaunchConfiguration("mesh_output_dir"),
                 "build_on_shutdown": LaunchConfiguration("build_mesh_on_shutdown"),
-                "urdf_extrinsic": True,
+                # Old-bag compatibility flag — see slam.yaml for explanation.
+                # The mesh builder needs to match SLAM's lidar→base assumption.
+                "urdf_extrinsic": False,
                 "colorize": LaunchConfiguration("colorize_mesh"),
                 "bag_path": LaunchConfiguration("bag"),
                 "urdf_path": LaunchConfiguration("urdf_path"),

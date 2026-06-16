@@ -43,6 +43,7 @@ __pycache__/
 # The captures + computed .npz are user-specific; the script reproduces
 # them on demand. Keep CAMERA_CALIBRATION.md as the source of truth.
 calib_captures/
+calib_captures_by_cam/
 calibration*.npz
 dump_*.png
 
@@ -66,3 +67,6 @@ compile_commands.json
 
 # Rerun recordings — large, regeneratable
 *.rrd
+
+# Local Livox SDK install (built from src/livox_ros_driver2/Livox-SDK2)
+livox_sdk_install/
