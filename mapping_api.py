@@ -146,6 +146,7 @@ _path      = []          # list of {x, y, z, timestamp} — appended each map up
 
 
 def get_status(node=None) -> dict:
+    global _mapping_state
     db_mb = 0.0
     if os.path.isfile(RTABMAP_DB):
         try:
@@ -164,10 +165,15 @@ def get_status(node=None) -> dict:
         except Exception:
             pass
 
-    if state == "unknown" and rtabmap_alive:
-        state = "running (no frames yet)"
-    elif state == "unknown" and not rtabmap_alive:
+    if not rtabmap_alive:
+        # rtabmap went away — reset state so it reflects reality
+        if state in ("running", "paused"):
+            with _state_lock:
+                _mapping_state = "unknown"
+            state = "unknown"
         state = "rtabmap not running"
+    elif state == "unknown":
+        state = "running (no frames yet)"
 
     with _state_lock:
         return {
@@ -509,8 +515,8 @@ def action_export(node: MappingNode, filename) -> dict:
             with _state_lock: _mapping_state = "paused"
 
     cmd = [RTABMAP_EXPORT_BIN,
-           "--scan",
-           "--scan_voxel", "0.01",
+           "--cloud",
+           "--cloud_voxel", "0.01",
            "--ply",
            "--output_dir", EXPORT_DIR,
            "--output",     stem,
@@ -782,22 +788,47 @@ def action_launch() -> dict:
 
 def action_stop_launch() -> dict:
     global _launch_process, _launch_log_fh
+    stopped_via = []
+
+    # 1. Stop tracked launch process if we have one
     with _launch_lock:
-        if _launch_process is None or _launch_process.poll() is not None:
-            return {"ok": False, "message": "Not running"}
-        _launch_process.terminate()
-        try:
-            _launch_process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            _launch_process.kill()
+        if _launch_process is not None and _launch_process.poll() is None:
+            _launch_process.terminate()
+            try:
+                _launch_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                _launch_process.kill()
+            stopped_via.append("tracked process")
         if _launch_log_fh:
             try:
                 _launch_log_fh.close()
             except Exception:
                 pass
             _launch_log_fh = None
-        _clear_pid()
-        return {"ok": True, "message": "Stopped"}
+    _clear_pid()
+
+    # 2. Always pkill any surviving nodes
+    pattern = (
+        "rtabmap|icp_odometry|lidar_deskewing|lidar_merger|"
+        "livox_ros_driver2|joint_state_publisher|robot_state_publisher|"
+        "imu_to_tf|gscam|vectornav_udp|fisheye_rectify"
+    )
+    try:
+        subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True)
+        stopped_via.append("pkill")
+    except Exception:
+        pass
+
+    # 4. Reset internal state
+    global _mapping_state, _node_count, _loop_closures
+    with _state_lock:
+        _mapping_state = "unknown"
+        _node_count    = 0
+        _loop_closures = 0
+
+    if not stopped_via:
+        return {"ok": False, "message": "Nothing was running"}
+    return {"ok": True, "message": f"Stopped via: {', '.join(stopped_via)}"}
 
 
 def action_launch_status(include_log: bool = True) -> dict:
@@ -879,8 +910,9 @@ OPENAPI_SPEC = {
             "responses": {"200": {"description": "ok"}, "503": {"description": "already running or error"}},
         }},
         "/mapping/stop": {"post": {
-            "summary": "Stop run.launch.py (SIGTERM → SIGKILL after 10s)",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "not running"}},
+            "summary": "Stop run.launch.py and kill all ROS nodes",
+            "description": "Terminates the tracked launch process, then pkill -9 all known ROS node patterns.",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "nothing was running"}},
         }},
         "/robot/position": {"get": {
             "summary": "Current robot pose (xyz + roll/pitch/yaw) in map frame",
