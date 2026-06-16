@@ -65,6 +65,7 @@ LOCAL_SIZE  = 200
 
 EXPORT_DIR         = "/mnt/ssd/sftp/maps"
 RTABMAP_DB         = "/mnt/ssd/sftp/rtabmapdb/rtabmap.db"
+POIS_PATH          = "/mnt/ssd/sftp/maps/pois.json"
 RTABMAP_EXPORT_BIN = "/opt/ros/humble/bin/rtabmap-export"
 CONFIG_PATH        = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "config", "rtabmap.yaml"
@@ -138,8 +139,36 @@ def _restore_launch_process():
         _launch_process = _ExternalProcess(pid)
     print(f"[mapping_api] re-attached to existing launch process pid={pid}", flush=True)
 
+def _load_pois() -> dict:
+    """Load POIs from disk on startup."""
+    if not os.path.isfile(POIS_PATH):
+        return {}
+    try:
+        with open(POIS_PATH) as f:
+            data = json.load(f)
+        pois = {p["id"]: p for p in data.get("pois", []) if "id" in p}
+        print(f"[mapping_api] Loaded {len(pois)} POIs from {POIS_PATH}", flush=True)
+        return pois
+    except Exception as e:
+        print(f"[mapping_api] Could not load POIs: {e}", flush=True)
+        return {}
+
+
+def _save_pois(pois: dict) -> None:
+    """Persist POIs to disk immediately."""
+    try:
+        os.makedirs(os.path.dirname(POIS_PATH), exist_ok=True)
+        with open(POIS_PATH, "w") as f:
+            json.dump({
+                "pois":       list(pois.values()),
+                "saved_at":   datetime.datetime.utcnow().isoformat(),
+            }, f, indent=2)
+    except Exception as e:
+        print(f"[mapping_api] Could not save POIs: {e}", flush=True)
+
+
 # ── POIs, robot pose, path history ───────────────────────────────────────────
-_pois      = {}          # id → {id, name, type, x, y, z, yaw, timestamp}
+_pois      = _load_pois()  # id → {id, name, type, x, y, z, yaw, timestamp} — persisted to disk
 _poi_lock  = threading.Lock()
 _robot_pose = None       # latest {x, y, z, roll, pitch, yaw, timestamp}
 _path      = []          # list of {x, y, z, timestamp} — appended each map update
@@ -147,7 +176,7 @@ _path      = []          # list of {x, y, z, timestamp} — appended each map up
 
 def _sqlite_stats() -> dict:
     """Read node count and odometry link count directly from the DB."""
-    result = {"node_count": 0, "odom_links": 0, "db_size_mb": 0.0}
+    result = {"node_count": 0, "odom_links": 0, "loop_closures": 0, "db_size_mb": 0.0}
     if not os.path.isfile(RTABMAP_DB):
         return result
     try:
@@ -158,9 +187,12 @@ def _sqlite_stats() -> dict:
         import sqlite3 as _sqlite3
         con = _sqlite3.connect(f"file:{RTABMAP_DB}?mode=ro", uri=True, timeout=2)
         cur = con.cursor()
-        result["node_count"] = cur.execute("SELECT COUNT(*) FROM Node").fetchone()[0]
-        result["odom_links"] = cur.execute(
+        result["node_count"]    = cur.execute("SELECT COUNT(*) FROM Node").fetchone()[0]
+        result["odom_links"]    = cur.execute(
             "SELECT COUNT(*) FROM Link WHERE type=0"
+        ).fetchone()[0]
+        result["loop_closures"] = cur.execute(
+            "SELECT COUNT(*) FROM Link WHERE type=1"
         ).fetchone()[0]
         con.close()
     except Exception:
@@ -199,7 +231,7 @@ def get_status(node=None) -> dict:
         "rtabmap_alive":  rtabmap_alive,
         "node_count":     stats["node_count"],
         "odom_links":     stats["odom_links"],
-        "loop_closures":  _loop_closures,   # still from /rtabmap/info (best effort)
+        "loop_closures":  stats["loop_closures"],
         "db_size_mb":     stats["db_size_mb"],
         "timestamp":      time.time(),
         "export_ready":   stats["node_count"] >= 2 and stats["odom_links"] >= 1,
@@ -537,8 +569,14 @@ def action_export(node: MappingNode, filename) -> dict:
         time.sleep(2.0)
 
     cmd = [RTABMAP_EXPORT_BIN,
-           "--scan",
-           "--scan_voxel", "0.01",
+           "--scan",                       # LiDAR scan data (not depth/stereo)
+           "--scan_voxel",     "0.01",     # assemble_voxel=0.01
+           "--scan_decimation","1",        # regenerate_decimation=1
+           "--scan_max_range", "4.0",      # regenerate_max_depth=4
+           "--mls",                        # Moving Least Squares smoothing
+           "--mls_radius",     "0.1",      # mls_radius=0.1
+           "--normals_k",      "20",       # normals_k=20
+           "--binary",                     # binary PLY (binary=true, smaller file)
            "--ply",
            "--output_dir", EXPORT_DIR,
            "--output",     stem,
@@ -767,6 +805,7 @@ def action_add_poi(node: MappingNode, name: str, poi_type: str,
     }
     with _poi_lock:
         _pois[poi_id] = poi
+        _save_pois(_pois)
     return {"ok": True, "message": "POI added", "poi": poi}
 
 
@@ -781,7 +820,18 @@ def action_delete_poi(poi_id: str) -> dict:
         if poi_id not in _pois:
             return {"ok": False, "message": f"POI {poi_id!r} not found"}
         del _pois[poi_id]
+        _save_pois(_pois)
     return {"ok": True, "message": f"POI {poi_id!r} deleted"}
+
+
+def action_clear_pois() -> dict:
+    """Delete all POIs from memory and from disk."""
+    global _pois
+    with _poi_lock:
+        count = len(_pois)
+        _pois = {}
+        _save_pois(_pois)
+    return {"ok": True, "message": f"Cleared {count} POI(s)"}
 
 
 def action_launch() -> dict:
@@ -885,33 +935,53 @@ OPENAPI_SPEC = {
         ),
     },
     "servers": [{"url": "/", "description": "This server"}],
+    "tags": [
+        {"name": "Status",  "description": "Map and launch status"},
+        {"name": "Launch",  "description": "Start and stop the ROS launch stack"},
+        {"name": "Mapping", "description": "Control rtabmap SLAM"},
+        {"name": "Robot",   "description": "Robot pose and position"},
+        {"name": "POIs",    "description": "Points of interest — persisted to disk"},
+    ],
     "paths": {
         "/minimap": {"get": {
+            "tags": ["Status"],
             "summary": "Robot-centred 2-D occupancy map crop",
             "description": "Cells: -1=unknown  0=free  100=occupied",
             "responses": {"200": {"description": "Snapshot JSON"}},
         }},
         "/mapping/status": {"get": {
-            "summary": "State, node count, loop closures, DB size",
+            "tags": ["Status"],
+            "summary": "State, node count, odom links, loop closures, DB size",
             "responses": {"200": {"description": "Status JSON"}},
         }},
-        "/mapping/go": {"post": {
-            "summary": "Resume mapping (no-op if already running)",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        "/mapping/launch": {"post": {
+            "tags": ["Launch"],
+            "summary": "Start run.launch.py (detached, log written to LAUNCH_LOG_PATH)",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "already running or error"}},
         }},
-        "/mapping/pause": {"post": {
-            "summary": "Pause scan integration",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        "/mapping/launch_status": {"get": {
+            "tags": ["Launch"],
+            "summary": "Launch process status + optional log output",
+            "description": "Add ?log=false to skip log content (useful for fast polling).",
+            "parameters": [{"name": "log", "in": "query", "required": False,
+                            "schema": {"type": "string", "enum": ["true", "false"],
+                                       "default": "true"},
+                            "description": "Include log output in response (default true)"}],
+            "responses": {"200": {"description": "running, pid, exit_code, log_path, log (if requested)"}},
+        }},
+        "/mapping/stop": {"post": {
+            "tags": ["Launch"],
+            "summary": "Stop run.launch.py and kill all ROS nodes",
+            "description": "Terminates the tracked launch process, then pkill -9 all known ROS node patterns.",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "nothing was running"}},
         }},
         "/mapping/restart": {"post": {
+            "tags": ["Mapping"],
             "summary": "Clear map + DB, start fresh (irreversible)",
             "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
         }},
-        "/mapping/new_map": {"post": {
-            "summary": "Start a new sub-map while keeping the existing pose graph",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
-        }},
         "/mapping/export": {"post": {
+            "tags": ["Mapping"],
             "summary": "Export scan PLY + POIs JSON + path JSON + 2D map PGM/YAML (blocks 10-120s)",
             "requestBody": {"required": False, "content": {"application/json": {"schema": {
                 "type": "object",
@@ -919,7 +989,24 @@ OPENAPI_SPEC = {
             }}}},
             "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
         }},
+        "/mapping/go": {"post": {
+            "tags": ["Mapping"],
+            "summary": "Resume mapping (no-op if already running)",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        }},
+        "/mapping/pause": {"post": {
+            "tags": ["Mapping"],
+            "summary": "Pause scan integration",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        }},
+
+        "/mapping/new_map": {"post": {
+            "tags": ["Mapping"],
+            "summary": "Start a new sub-map while keeping the existing pose graph",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        }},
         "/mapping/config": {"post": {
+            "tags": ["Mapping"],
             "summary": "Hot-reload rtabmap.yaml without restart",
             "requestBody": {"required": False, "content": {"application/json": {"schema": {
                 "type": "object",
@@ -927,27 +1014,21 @@ OPENAPI_SPEC = {
             }}}},
             "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
         }},
-        "/mapping/launch": {"post": {
-            "summary": "Start run.launch.py (detached, log written to LAUNCH_LOG_PATH)",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "already running or error"}},
-        }},
-        "/mapping/stop": {"post": {
-            "summary": "Stop run.launch.py and kill all ROS nodes",
-            "description": "Terminates the tracked launch process, then pkill -9 all known ROS node patterns.",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "nothing was running"}},
-        }},
         "/robot/position": {"get": {
+            "tags": ["Robot"],
             "summary": "Current robot pose (xyz + roll/pitch/yaw) in map frame",
             "description": "Returns position relative to map origin (0,0,0). Angles in radians and degrees.",
             "responses": {"200": {"description": "Pose JSON"}},
         }},
         "/pois": {"get": {
-            "summary": "Get all POIs stored in memory",
+            "tags": ["POIs"],
+            "summary": "Get all POIs (loaded from disk on startup)",
             "responses": {"200": {"description": "List of POIs"}},
         }},
         "/pois/add": {"post": {
+            "tags": ["POIs"],
             "summary": "Add a POI at the robot\'s current position",
-            "description": "Optionally offset in front of the robot by `distance` metres.",
+            "description": "Optionally offset in front of the robot by `distance` metres. Saved to disk immediately.",
             "requestBody": {"required": True, "content": {"application/json": {"schema": {
                 "type": "object",
                 "required": ["name"],
@@ -962,6 +1043,7 @@ OPENAPI_SPEC = {
             "responses": {"200": {"description": "Created POI"}, "503": {"description": "error"}},
         }},
         "/pois/delete": {"post": {
+            "tags": ["POIs"],
             "summary": "Delete a POI by ID",
             "requestBody": {"required": True, "content": {"application/json": {"schema": {
                 "type": "object",
@@ -970,18 +1052,13 @@ OPENAPI_SPEC = {
             }}}},
             "responses": {"200": {"description": "ok"}, "503": {"description": "not found"}},
         }},
-        "/mapping/launch_status": {"get": {
-            "summary": "Launch process status + optional log output",
-            "description": "Add ?log=false to skip log content (useful for fast polling).",
-            "parameters": [{"name": "log", "in": "query", "required": False,
-                            "schema": {"type": "string", "enum": ["true", "false"],
-                                       "default": "true"},
-                            "description": "Include log output in response (default true)"}],
-            "responses": {"200": {"description": "running, pid, exit_code, log_path, log (if requested)"}},
+        "/pois/clear": {"post": {
+            "tags": ["POIs"],
+            "summary": "Delete all POIs from memory and disk (irreversible)",
+            "responses": {"200": {"description": "ok"}},
         }},
     },
 }
-
 SWAGGER_HTML = b"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1095,6 +1172,7 @@ def make_handler(node: MappingNode):
                     float(body.get("distance", 0.0))
                 ),
                 "/pois/delete":     lambda: action_delete_poi(body.get("id", "")),
+                "/pois/clear":      lambda: action_clear_pois(),
             }
 
             if p not in routes:
