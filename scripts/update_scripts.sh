@@ -25,7 +25,7 @@ sudo loginctl enable-linger capra
 echo "4/6 Install and enable services"
 echo "Installing services to $USER_SYSTEMD_DIR..."
 
-cp "$SCRIPT_DIR/rove_mapping_launch.service" "$USER_SYSTEMD_DIR/"
+# cp "$SCRIPT_DIR/rove_mapping_launch.service" "$USER_SYSTEMD_DIR/"
 cp "$SCRIPT_DIR/rove_mapping_api.service" "$USER_SYSTEMD_DIR/"
 
 # 5. Reload the user daemon
@@ -34,8 +34,8 @@ systemctl --user daemon-reload
 
 # 6. Enable and Start the services
 echo "6/6 Enable and Start the services"
-systemctl --user enable rove_mapping_launch.service
-systemctl --user restart rove_mapping_launch.service
+# systemctl --user enable rove_mapping_launch.service
+# systemctl --user restart rove_mapping_launch.service
 systemctl --user enable rove_mapping_api.service
 systemctl --user restart rove_mapping_api.service
 

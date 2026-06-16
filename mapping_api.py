@@ -75,7 +75,7 @@ _workspace = os.environ.get(
     "ROVE_WS",
     "/home/nathan/capra/photorealistic-mapping"  # laptop default
 )
-LAUNCH_CMD = (
+LAUNCH_CMD         = (
     f"bash -c 'source /opt/ros/humble/setup.bash && "
     f"source {_workspace}/install/setup.bash && "
     f"ros2 launch rove_color_mapping run.launch.py'"
@@ -145,7 +145,7 @@ _robot_pose = None       # latest {x, y, z, roll, pitch, yaw, timestamp}
 _path      = []          # list of {x, y, z, timestamp} — appended each map update
 
 
-def get_status() -> dict:
+def get_status(node=None) -> dict:
     db_mb = 0.0
     if os.path.isfile(RTABMAP_DB):
         try:
@@ -153,12 +153,30 @@ def get_status() -> dict:
         except OSError:
             pass
     with _state_lock:
+        state = _mapping_state
+
+    # If state is still unknown, check whether rtabmap services are reachable
+    # to distinguish "rtabmap not started" from "rtabmap running but no frames yet"
+    rtabmap_alive = False
+    if node is not None:
+        try:
+            rtabmap_alive = node.cli_resume.service_is_ready()
+        except Exception:
+            pass
+
+    if state == "unknown" and rtabmap_alive:
+        state = "running (no frames yet)"
+    elif state == "unknown" and not rtabmap_alive:
+        state = "rtabmap not running"
+
+    with _state_lock:
         return {
-            "state":         _mapping_state,
-            "node_count":    _node_count,
-            "loop_closures": _loop_closures,
-            "db_size_mb":    db_mb,
-            "timestamp":     time.time(),
+            "state":          state,
+            "rtabmap_alive":  rtabmap_alive,
+            "node_count":     _node_count,
+            "loop_closures":  _loop_closures,
+            "db_size_mb":     db_mb,
+            "timestamp":      time.time(),
         }
 
 
@@ -626,46 +644,71 @@ def action_config(node: MappingNode, path) -> dict:
     return result
 
 
+def _tf_to_pose(tf, frame: str, note: str = "") -> dict:
+    """Convert a TF transform to a pose dict."""
+    q     = tf.transform.rotation
+    t     = tf.transform.translation
+    yaw   = math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z))
+    sinr  = 2*(q.w*q.x + q.y*q.z)
+    cosr  = 1 - 2*(q.x*q.x + q.y*q.y)
+    roll  = math.atan2(sinr, cosr)
+    sinp  = 2*(q.w*q.y - q.z*q.x)
+    pitch = math.asin(max(-1.0, min(1.0, sinp)))
+    result = {
+        "ok": True, "found": True,
+        "x": t.x, "y": t.y, "z": t.z,
+        "roll": roll, "pitch": pitch, "yaw": yaw,
+        "roll_deg":  math.degrees(roll),
+        "pitch_deg": math.degrees(pitch),
+        "yaw_deg":   math.degrees(yaw),
+        "timestamp": time.time(),
+        "frame": frame,
+    }
+    if note:
+        result["note"] = note
+    return result
+
+
 def action_robot_position(node: MappingNode) -> dict:
-    """Return the robot's current 6-DOF pose in the map frame."""
-    # Try a fresh TF lookup first for lowest latency
+    """Return the robot's current 6-DOF pose.
+
+    Tries frames in order:
+      1. new_map → Core  (full SLAM pose, most accurate)
+      2. icp_odom → Core (odometry only, no loop closure corrections)
+      3. Cached pose from last map callback
+    """
+    zero_time = rclpy.time.Time(seconds=0, nanoseconds=0,
+                                clock_type=rclpy.clock.ClockType.SYSTEM_TIME)
+
+    # 1. Full SLAM pose
     try:
-        tf = node.tf_buffer.lookup_transform(
-            MAP_FRAME, ROBOT_FRAME,
-            rclpy.time.Time(seconds=0, nanoseconds=0,
-                            clock_type=rclpy.clock.ClockType.SYSTEM_TIME),
-        )
-        q     = tf.transform.rotation
-        t     = tf.transform.translation
-        yaw   = math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z))
-        sinr  = 2*(q.w*q.x + q.y*q.z)
-        cosr  = 1 - 2*(q.x*q.x + q.y*q.y)
-        roll  = math.atan2(sinr, cosr)
-        sinp  = 2*(q.w*q.y - q.z*q.x)
-        pitch = math.asin(max(-1.0, min(1.0, sinp)))
-        return {
-            "ok": True,
-            "found": True,
-            "x": t.x, "y": t.y, "z": t.z,
-            "roll": roll, "pitch": pitch, "yaw": yaw,
-            "roll_deg":  math.degrees(roll),
-            "pitch_deg": math.degrees(pitch),
-            "yaw_deg":   math.degrees(yaw),
-            "timestamp": time.time(),
-            "frame": MAP_FRAME,
-        }
-    except Exception as e:
-        # Fall back to cached pose from last map update
-        with _state_lock:
-            pose = _robot_pose
-        if pose:
-            return {"ok": True, "found": True, **pose,
-                    "roll_deg":  math.degrees(pose["roll"]),
-                    "pitch_deg": math.degrees(pose["pitch"]),
-                    "yaw_deg":   math.degrees(pose["yaw"]),
-                    "frame": MAP_FRAME, "cached": True}
-        return {"ok": False, "found": False,
-                "message": f"TF not available: {e}"}
+        tf = node.tf_buffer.lookup_transform(MAP_FRAME, ROBOT_FRAME, zero_time)
+        return _tf_to_pose(tf, MAP_FRAME)
+    except Exception:
+        pass
+
+    # 2. Odometry-only pose (icp_odom → Core)
+    try:
+        tf = node.tf_buffer.lookup_transform("icp_odom", ROBOT_FRAME, zero_time)
+        return _tf_to_pose(tf, "icp_odom",
+                           "new_map not available yet — odometry frame only, "
+                           "no loop closure corrections applied")
+    except Exception:
+        pass
+
+    # 3. Cached pose from last map callback
+    with _state_lock:
+        pose = _robot_pose
+    if pose:
+        return {"ok": True, "found": True, **pose,
+                "roll_deg":  math.degrees(pose["roll"]),
+                "pitch_deg": math.degrees(pose["pitch"]),
+                "yaw_deg":   math.degrees(pose["yaw"]),
+                "frame": MAP_FRAME, "cached": True,
+                "note": "Cached from last map update — may be slightly stale"}
+
+    return {"ok": False, "found": False,
+            "message": "No pose available — is rtabmap running and has the robot moved?"}
 
 
 def action_add_poi(node: MappingNode, name: str, poi_type: str,
@@ -965,7 +1008,7 @@ def make_handler(node: MappingNode):
                     "hint":  "Is run.launch.py running and publishing /grid_prob_map?",
                 })
             elif p == "/mapping/status":
-                self._json(200, get_status())
+                self._json(200, get_status(node))
             elif p == "/robot/position":
                 self._json(200, action_robot_position(node))
             elif p == "/pois":
