@@ -9,6 +9,7 @@ from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration
 
 DB_PATH = '/mnt/ssd/sftp/rtabmapdb/rtabmap.db'
+SAVE_BAGS_FLAG = '/mnt/ssd/sftp/SAVE_BAGS'
 
 def check_db(context):
     """Verify DB integrity on startup. Delete if corrupted so rtabmap doesn't crash."""
@@ -40,6 +41,25 @@ def check_db(context):
         os.remove(DB_PATH)
 
     return []
+
+
+def maybe_record_bags(context):
+    """Include rosbag.launch.py only if the SAVE_BAGS flag file exists.
+
+    Drop a file at /mnt/ssd/sftp/SAVE_BAGS to record bags for this run;
+    remove it to skip recording. Checked once at launch time.
+    """
+    if not os.path.exists(SAVE_BAGS_FLAG):
+        print(f'[run.launch] No {SAVE_BAGS_FLAG} flag — skipping bag recording')
+        return []
+
+    print(f'[run.launch] {SAVE_BAGS_FLAG} present — starting bag recording')
+    return [IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(os.path.join(
+            get_package_share_directory('rove_color_mapping'),
+            'launch', 'rosbag.launch.py'
+        ))
+    )]
 
 
 def generate_launch_description():
@@ -150,4 +170,7 @@ def generate_launch_description():
         rtabmap_lidar_launch,
         gscam_launch,
         # nav2_launch,
+
+        # Bag recording — only if the SAVE_BAGS flag file is present
+        OpaqueFunction(function=maybe_record_bags),
     ])
