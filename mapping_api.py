@@ -145,19 +145,33 @@ _robot_pose = None       # latest {x, y, z, roll, pitch, yaw, timestamp}
 _path      = []          # list of {x, y, z, timestamp} — appended each map update
 
 
+def _sqlite_stats() -> dict:
+    """Read node count and odometry link count directly from the DB."""
+    result = {"node_count": 0, "odom_links": 0, "db_size_mb": 0.0}
+    if not os.path.isfile(RTABMAP_DB):
+        return result
+    try:
+        result["db_size_mb"] = round(os.path.getsize(RTABMAP_DB) / 1e6, 2)
+    except OSError:
+        pass
+    try:
+        import sqlite3 as _sqlite3
+        con = _sqlite3.connect(f"file:{RTABMAP_DB}?mode=ro", uri=True, timeout=2)
+        cur = con.cursor()
+        result["node_count"] = cur.execute("SELECT COUNT(*) FROM Node").fetchone()[0]
+        result["odom_links"] = cur.execute(
+            "SELECT COUNT(*) FROM Link WHERE type=0"
+        ).fetchone()[0]
+        con.close()
+    except Exception:
+        pass
+    return result
+
+
 def get_status(node=None) -> dict:
     global _mapping_state
-    db_mb = 0.0
-    if os.path.isfile(RTABMAP_DB):
-        try:
-            db_mb = round(os.path.getsize(RTABMAP_DB) / 1e6, 2)
-        except OSError:
-            pass
-    with _state_lock:
-        state = _mapping_state
 
-    # If state is still unknown, check whether rtabmap services are reachable
-    # to distinguish "rtabmap not started" from "rtabmap running but no frames yet"
+    # Check rtabmap service availability
     rtabmap_alive = False
     if node is not None:
         try:
@@ -165,8 +179,10 @@ def get_status(node=None) -> dict:
         except Exception:
             pass
 
+    # Update internal state based on service availability
+    with _state_lock:
+        state = _mapping_state
     if not rtabmap_alive:
-        # rtabmap went away — reset state so it reflects reality
         if state in ("running", "paused"):
             with _state_lock:
                 _mapping_state = "unknown"
@@ -175,15 +191,19 @@ def get_status(node=None) -> dict:
     elif state == "unknown":
         state = "running (no frames yet)"
 
-    with _state_lock:
-        return {
-            "state":          state,
-            "rtabmap_alive":  rtabmap_alive,
-            "node_count":     _node_count,
-            "loop_closures":  _loop_closures,
-            "db_size_mb":     db_mb,
-            "timestamp":      time.time(),
-        }
+    # Read ground-truth counts from DB — more reliable than /rtabmap/info
+    stats = _sqlite_stats()
+
+    return {
+        "state":          state,
+        "rtabmap_alive":  rtabmap_alive,
+        "node_count":     stats["node_count"],
+        "odom_links":     stats["odom_links"],
+        "loop_closures":  _loop_closures,   # still from /rtabmap/info (best effort)
+        "db_size_mb":     stats["db_size_mb"],
+        "timestamp":      time.time(),
+        "export_ready":   stats["node_count"] >= 2 and stats["odom_links"] >= 1,
+    }
 
 
 def get_launch_log() -> str:
@@ -513,10 +533,12 @@ def action_export(node: MappingNode, filename) -> dict:
         ok, _ = node.call_empty(node.cli_pause, SVC_PAUSE)
         if ok:
             with _state_lock: _mapping_state = "paused"
+        # Give rtabmap time to flush in-memory nodes to the DB
+        time.sleep(2.0)
 
     cmd = [RTABMAP_EXPORT_BIN,
-           "--cloud",
-           "--cloud_voxel", "0.01",
+           "--scan",
+           "--scan_voxel", "0.01",
            "--ply",
            "--output_dir", EXPORT_DIR,
            "--output",     stem,
