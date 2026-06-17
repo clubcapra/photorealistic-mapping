@@ -3,29 +3,33 @@
 // Standalone UDP forwarder for Livox MID360 point + IMU data.
 // Runs on the Jetson alongside livox_ros_driver2, independent of ROS.
 //
-// Network layout:
-//   lidar1  192.168.2.40  ──┐
-//   lidar2  192.168.2.41  ──┤──▶  Jetson 192.168.2.3
-//                                      │
-//                                      ├──▶ livox_ros_driver2  (its own socket, untouched)
-//                                      └──▶ Pi 192.168.2.2:5600  (this process)
+// Uses SO_REUSEPORT so both this process and the ROS driver bind the
+// same ports simultaneously. The kernel delivers each datagram to both
+// independently — the ROS driver is completely unaware of this process.
 //
-// Uses SO_REUSEPORT so both this process and the ROS driver can bind
-// the same ports simultaneously. The kernel delivers each incoming
-// datagram to BOTH sockets independently — the ROS driver is completely
-// unaware of this process and vice versa. No localhost relay needed.
+// Build:
+//   g++ -O2 -o livox_forwarder livox_forwarder.cpp
 //
-// Ports shared with ROS driver:
-//   56301  point_data  (both lidars send here)
-//   56401  imu_data    (both lidars send here)
-//
-// cmd_data (56100) is never touched — ROS driver owns that exclusively.
-//
-// Usage:
-//   ./livox_forwarder <pi_ip> <pi_port>
-//
-// Example:
-//   ./livox_forwarder 192.168.2.2 5600
+// Run:
+//   ./livox_forwarder
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CONFIGURATION — edit this section only
+// ═════════════════════════════════════════════════════════════════════════════
+
+#define DEST_IP          "192.168.2.2"  // Pi IP
+
+// Each entry: { listen_port, dest_port }
+// listen_port : port the lidars send to on the Jetson (shared with ROS driver)
+// dest_port   : port the Pi Rust app listens on
+static const struct { uint16_t listen; uint16_t dest; const char* label; } kPorts[] = {
+    { 56301, 56301, "points" },  // point data  → Pi :56301
+    { 56401, 56401, "imu"    },  // IMU data    → Pi :56401
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
+// END OF CONFIGURATION
+// ═════════════════════════════════════════════════════════════════════════════
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -40,131 +44,85 @@
 #include <unistd.h>
 
 #include <atomic>
-#include <string>
 #include <vector>
 
-// ── Port configuration ────────────────────────────────────────────────────────
-
-struct PortEntry {
-    uint16_t    port;
-    const char* label;
-};
-
-static const PortEntry kPorts[] = {
-    { 56301, "points (both lidars)" },
-    { 56401, "imu    (both lidars)" },
-};
-static const int kNumPorts = static_cast<int>(sizeof(kPorts) / sizeof(kPorts[0]));
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
+static const int kNumPorts  = static_cast<int>(sizeof(kPorts) / sizeof(kPorts[0]));
 static const int kMaxEvents = 16;
 static const int kBufSize   = 65536;
 
-// ── Globals ───────────────────────────────────────────────────────────────────
-
 static std::atomic<bool> g_running{true};
-
 static void handle_signal(int) { g_running = false; }
 
-// ── Per-port state ────────────────────────────────────────────────────────────
-
 struct Forwarder {
-    int         recv_fd{-1};   // shares port with ROS driver via SO_REUSEPORT
-    int         send_fd{-1};   // sends only to Pi
-    sockaddr_in pi_dest{};
+    int         recv_fd{-1};
+    int         send_fd{-1};
+    sockaddr_in dest{};
+    uint16_t    listen_port{};
+    uint16_t    dest_port{};
     const char* label{nullptr};
     uint8_t     buf[kBufSize]{};
     uint64_t    pkt_count{0};
 };
 
-static bool init_forwarder(Forwarder&         f,
-                           const PortEntry&   port,
-                           const std::string& pi_ip,
-                           uint16_t           pi_port)
-{
-    f.label = port.label;
+static bool init_forwarder(Forwarder& f, uint16_t listen_port, uint16_t dest_port, const char* label) {
+    f.listen_port = listen_port;
+    f.dest_port   = dest_port;
+    f.label       = label;
 
     f.recv_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (f.recv_fd < 0) {
-        fprintf(stderr, "[%s] socket(recv): %s\n", port.label, strerror(errno));
+        fprintf(stderr, "[%s] socket(recv): %s\n", label, strerror(errno));
         return false;
     }
 
-    // SO_REUSEPORT lets both this process and livox_ros_driver2 bind the
-    // same port — the kernel delivers each datagram to both independently
     int reuse = 1;
     if (::setsockopt(f.recv_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
-        fprintf(stderr, "[%s] setsockopt(SO_REUSEPORT): %s\n", port.label, strerror(errno));
+        fprintf(stderr, "[%s] SO_REUSEPORT: %s\n", label, strerror(errno));
         return false;
     }
 
     sockaddr_in bind_addr{};
     bind_addr.sin_family      = AF_INET;
-    bind_addr.sin_port        = htons(port.port);
+    bind_addr.sin_port        = htons(listen_port);
     bind_addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (::bind(f.recv_fd,
-               reinterpret_cast<sockaddr*>(&bind_addr),
-               sizeof(bind_addr)) < 0) {
-        fprintf(stderr, "[%s] bind(:%u): %s\n",
-                port.label, port.port, strerror(errno));
+    if (::bind(f.recv_fd, reinterpret_cast<sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
+        fprintf(stderr, "[%s] bind(:%u): %s\n", label, listen_port, strerror(errno));
         return false;
     }
 
-    // Dedicated send socket — only used to forward to the Pi
     f.send_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (f.send_fd < 0) {
-        fprintf(stderr, "[%s] socket(send): %s\n", port.label, strerror(errno));
+        fprintf(stderr, "[%s] socket(send): %s\n", label, strerror(errno));
         return false;
     }
 
-    f.pi_dest.sin_family = AF_INET;
-    f.pi_dest.sin_port   = htons(pi_port);
-    if (::inet_pton(AF_INET, pi_ip.c_str(), &f.pi_dest.sin_addr) != 1) {
-        fprintf(stderr, "invalid Pi IP: %s\n", pi_ip.c_str());
+    f.dest.sin_family = AF_INET;
+    f.dest.sin_port   = htons(dest_port);
+    if (::inet_pton(AF_INET, DEST_IP, &f.dest.sin_addr) != 1) {
+        fprintf(stderr, "invalid DEST_IP: %s\n", DEST_IP);
         return false;
     }
 
-    printf("[fwd] %-24s  :%u  ->  %s:%u\n",
-           port.label, port.port, pi_ip.c_str(), pi_port);
+    printf("[fwd] %-8s  :%u  ->  %s:%u\n", label, listen_port, DEST_IP, dest_port);
     return true;
 }
 
 static void forward_one(Forwarder& f) {
     ssize_t n = ::recv(f.recv_fd, f.buf, kBufSize, 0);
     if (n <= 0) return;
-
-    // Forward verbatim to Pi only — ROS driver handles its own copy
     ::sendto(f.send_fd, f.buf, static_cast<size_t>(n), 0,
-             reinterpret_cast<const sockaddr*>(&f.pi_dest),
-             sizeof(f.pi_dest));
-
+             reinterpret_cast<const sockaddr*>(&f.dest), sizeof(f.dest));
     ++f.pkt_count;
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-int main(int argc, char** argv) {
-    if (argc < 3) {
-        fprintf(stderr,
-            "Usage: %s <pi_ip> <pi_port>\n"
-            "Example: %s 192.168.2.2 5600\n",
-            argv[0], argv[0]);
-        return 1;
-    }
-
-    const std::string pi_ip   = argv[1];
-    const uint16_t    pi_port = static_cast<uint16_t>(std::stoi(argv[2]));
-
+int main() {
     signal(SIGINT,  handle_signal);
     signal(SIGTERM, handle_signal);
 
     std::vector<Forwarder> fwds(kNumPorts);
     for (int i = 0; i < kNumPorts; ++i) {
-        if (!init_forwarder(fwds[i], kPorts[i], pi_ip, pi_port)) {
+        if (!init_forwarder(fwds[i], kPorts[i].listen, kPorts[i].dest, kPorts[i].label))
             return 1;
-        }
     }
 
     int epfd = ::epoll_create1(0);
@@ -177,8 +135,7 @@ int main(int argc, char** argv) {
         ::epoll_ctl(epfd, EPOLL_CTL_ADD, fwds[i].recv_fd, &ev);
     }
 
-    printf("[fwd] running — forwarding to Pi %s:%u — Ctrl-C to stop\n",
-           pi_ip.c_str(), pi_port);
+    printf("[fwd] running — %d channel(s) — Ctrl-C to stop\n", kNumPorts);
 
     uint64_t    last_stats = 0;
     epoll_event events[kMaxEvents];
@@ -189,13 +146,12 @@ int main(int argc, char** argv) {
             if (events[i].events & EPOLLIN)
                 forward_one(fwds[events[i].data.u32]);
         }
-
         uint64_t now = static_cast<uint64_t>(time(nullptr));
         if (now - last_stats >= 10) {
             last_stats = now;
             for (auto& f : fwds)
-                printf("[fwd] %-24s  %lu pkts forwarded\n",
-                       f.label, f.pkt_count);
+                printf("[fwd] %-8s  :%u -> %s:%u  |  %lu pkts\n",
+                       f.label, f.listen_port, DEST_IP, f.dest_port, f.pkt_count);
         }
     }
 
@@ -204,7 +160,6 @@ int main(int argc, char** argv) {
         if (f.recv_fd >= 0) ::close(f.recv_fd);
         if (f.send_fd >= 0) ::close(f.send_fd);
     }
-
     printf("[fwd] stopped\n");
     return 0;
 }
