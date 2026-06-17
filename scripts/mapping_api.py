@@ -66,7 +66,10 @@ LOCAL_SIZE  = 200
 EXPORT_DIR         = "/mnt/ssd/sftp/maps"
 RTABMAP_DB         = "/mnt/ssd/sftp/rtabmapdb/rtabmap.db"
 POIS_PATH          = "/mnt/ssd/sftp/maps/pois.json"
-RTABMAP_EXPORT_BIN = "/opt/ros/humble/bin/rtabmap-export"
+RTABMAP_EXPORT_BIN   = "/opt/ros/humble/bin/rtabmap-export"
+COLOR_PROJECTOR_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "color_projector.py"
+)
 CONFIG_PATH        = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "config", "rtabmap.yaml"
 )
@@ -687,6 +690,54 @@ def action_export(node: MappingNode, filename) -> dict:
     else:
         result["map_warning"] = "No 2D map snapshot available yet"
 
+    # ── Color projection from all 4 cameras ──────────────────────────────────
+    if result.get("ok") and result.get("path") and os.path.isfile(COLOR_PROJECTOR_PATH):
+        ply_path     = result["path"]
+        colored_path = ply_path.replace("_cloud.ply", "_colored.ply").replace(".ply", "_colored.ply")
+        cameras_json = os.path.join(EXPORT_DIR, "..", "images", "cameras.json")
+        cameras_json = os.path.normpath(cameras_json)
+        images_dir   = os.path.normpath(os.path.join(EXPORT_DIR, "..", "images"))
+
+        if not os.path.isfile(cameras_json):
+            result["color_warning"] = (
+                "cameras.json not found — image_recorder.py may not have run. "
+                "Skipping color projection."
+            )
+        elif not os.path.isdir(images_dir):
+            result["color_warning"] = "Images directory not found — skipping color projection."
+        else:
+            try:
+                color_cmd = [
+                    sys.executable, COLOR_PROJECTOR_PATH,
+                    ply_path,
+                    "--output",  colored_path,
+                    "--images",  images_dir,
+                    "--cameras", cameras_json,
+                ]
+                t_color = time.time()
+                proc2 = subprocess.run(
+                    color_cmd, capture_output=True, text=True, timeout=600
+                )
+                color_dur = round(time.time() - t_color, 1)
+                if proc2.returncode == 0 and os.path.isfile(colored_path):
+                    result["colored_path"]     = colored_path
+                    result["colored_size_mb"]  = round(
+                        os.path.getsize(colored_path) / 1e6, 2
+                    )
+                    result["color_duration_s"] = color_dur
+                    result["message"]         += " + color projection complete"
+                else:
+                    result["color_warning"] = (
+                        f"Color projection failed after {color_dur}s: "
+                        + (proc2.stderr.strip() or proc2.stdout.strip() or "unknown error")
+                    )
+            except subprocess.TimeoutExpired:
+                result["color_warning"] = "Color projection timed out after 600s"
+            except Exception as e:
+                result["color_warning"] = f"Color projection error: {e}"
+    elif not os.path.isfile(COLOR_PROJECTOR_PATH):
+        result["color_warning"] = f"color_projector.py not found at {COLOR_PROJECTOR_PATH}"
+
     return result
 
 
@@ -975,20 +1026,6 @@ OPENAPI_SPEC = {
             "description": "Terminates the tracked launch process, then pkill -9 all known ROS node patterns.",
             "responses": {"200": {"description": "ok"}, "503": {"description": "nothing was running"}},
         }},
-        "/mapping/restart": {"post": {
-            "tags": ["Mapping"],
-            "summary": "Clear map + DB, start fresh (irreversible)",
-            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
-        }},
-        "/mapping/export": {"post": {
-            "tags": ["Mapping"],
-            "summary": "Export scan PLY + POIs JSON + path JSON + 2D map PGM/YAML (blocks 10-120s)",
-            "requestBody": {"required": False, "content": {"application/json": {"schema": {
-                "type": "object",
-                "properties": {"filename": {"type": "string", "example": "scan.ply"}},
-            }}}},
-            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
-        }},
         "/mapping/go": {"post": {
             "tags": ["Mapping"],
             "summary": "Resume mapping (no-op if already running)",
@@ -999,10 +1036,23 @@ OPENAPI_SPEC = {
             "summary": "Pause scan integration",
             "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
         }},
-
+        "/mapping/restart": {"post": {
+            "tags": ["Mapping"],
+            "summary": "Clear map + DB, start fresh (irreversible)",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        }},
         "/mapping/new_map": {"post": {
             "tags": ["Mapping"],
             "summary": "Start a new sub-map while keeping the existing pose graph",
+            "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
+        }},
+        "/mapping/export": {"post": {
+            "tags": ["Mapping"],
+            "summary": "Export scan PLY + POIs JSON + path JSON + 2D map PGM/YAML (blocks 10-120s)",
+            "requestBody": {"required": False, "content": {"application/json": {"schema": {
+                "type": "object",
+                "properties": {"filename": {"type": "string", "example": "scan.ply"}},
+            }}}},
             "responses": {"200": {"description": "ok"}, "503": {"description": "error"}},
         }},
         "/mapping/config": {"post": {
