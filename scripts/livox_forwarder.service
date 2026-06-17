@@ -1,11 +1,11 @@
 [Unit]
-Description=Livox point data forwarder (replicates lidar UDP to Pi and localhost)
+Description=Livox UDP forwarder (points + IMU to Pi and localhost)
 After=network.target
 
 [Service]
-Environment="FORWARDER_SRC=/home/capra/projects/photorealistic-mapping/livox_forwarder"
-ExecStartPre=/bin/bash -c "g++ -O2 -o /home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder /home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder.cpp"
-ExecStart=/home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder 192.168.2.2 5600 56301 56302
+Environment="PI_IP=192.168.2.2"
+Environment="PI_PORT=5600"
+ExecStart=/home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder ${PI_IP} ${PI_PORT}
 Restart=on-failure
 RestartSec=5s
 
