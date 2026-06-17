@@ -1,3 +1,4 @@
+#include <cerrno>
 #include <cstdint>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -48,8 +49,8 @@ static uint16_t udp_checksum(const struct iphdr* iph, const struct udphdr* udph,
     pseudo.udp_len = udph->len;
     int total = sizeof(pseudo) + sizeof(struct udphdr) + payload_len;
     std::vector<uint8_t> buf(total);
-    memcpy(buf.data(),                                                               &pseudo, sizeof(pseudo));
-    memcpy(buf.data() + sizeof(pseudo),                                              udph,    sizeof(struct udphdr));
+    memcpy(buf.data(),                                                    &pseudo, sizeof(pseudo));
+    memcpy(buf.data() + sizeof(pseudo),                                   udph,    sizeof(struct udphdr));
     memcpy(buf.data() + sizeof(pseudo) + sizeof(struct udphdr), payload, payload_len);
     return checksum(buf.data(), total);
 }
@@ -69,18 +70,24 @@ static bool init_forwarder(Forwarder& f, uint16_t port, const char* label) {
     f.label = label;
 
     f.recv_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-    if (f.recv_fd < 0) { fprintf(stderr, "[%s] socket(recv): %s\n", label, strerror(errno)); return false; }
+    if (f.recv_fd < 0) {
+        fprintf(stderr, "[%s] socket(recv): %s\n", label, strerror(errno));
+        return false;
+    }
 
     int reuse = 1;
     if (::setsockopt(f.recv_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
-        fprintf(stderr, "[%s] SO_REUSEPORT: %s\n", label, strerror(errno)); return false;
+        fprintf(stderr, "[%s] SO_REUSEPORT: %s\n", label, strerror(errno));
+        return false;
     }
+
     sockaddr_in bind_addr{};
     bind_addr.sin_family      = AF_INET;
     bind_addr.sin_port        = htons(port);
     bind_addr.sin_addr.s_addr = INADDR_ANY;
     if (::bind(f.recv_fd, reinterpret_cast<sockaddr*>(&bind_addr), sizeof(bind_addr)) < 0) {
-        fprintf(stderr, "[%s] bind(:%u): %s\n", label, port, strerror(errno)); return false;
+        fprintf(stderr, "[%s] bind(:%u): %s\n", label, port, strerror(errno));
+        return false;
     }
 
     f.raw_fd = ::socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -89,15 +96,20 @@ static bool init_forwarder(Forwarder& f, uint16_t port, const char* label) {
                 label, strerror(errno));
         return false;
     }
+
     int on = 1;
     if (::setsockopt(f.raw_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)) < 0) {
-        fprintf(stderr, "[%s] IP_HDRINCL: %s\n", label, strerror(errno)); return false;
+        fprintf(stderr, "[%s] IP_HDRINCL: %s\n", label, strerror(errno));
+        return false;
     }
+
     f.pi_addr.sin_family = AF_INET;
     f.pi_addr.sin_port   = 0;
     if (::inet_pton(AF_INET, DEST_IP, &f.pi_addr.sin_addr) != 1) {
-        fprintf(stderr, "invalid DEST_IP: %s\n", DEST_IP); return false;
+        fprintf(stderr, "invalid DEST_IP: %s\n", DEST_IP);
+        return false;
     }
+
     printf("[fwd] %-8s  :%u  ->  %s:%u  (source IP preserved)\n", label, port, DEST_IP, port);
     return true;
 }
