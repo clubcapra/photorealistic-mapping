@@ -1,29 +1,25 @@
 // livox_forwarder.cpp
 //
-// Standalone UDP proxy for Livox MID360 point + IMU data.
-// Runs on the Jetson as a user systemd service, independent of ROS.
+// Standalone UDP forwarder for Livox MID360 point + IMU data.
+// Runs on the Jetson alongside livox_ros_driver2, independent of ROS.
 //
 // Network layout:
 //   lidar1  192.168.2.40  ──┐
-//   lidar2  192.168.2.41  ──┤──▶  Jetson 192.168.2.3  (this process)
-//                            │        │
-//                            │        ├──▶ 127.0.0.1  (livox_ros_driver2)
-//                            │        └──▶ Pi 192.168.2.2
+//   lidar2  192.168.2.41  ──┤──▶  Jetson 192.168.2.3
+//                                      │
+//                                      ├──▶ livox_ros_driver2  (its own socket, untouched)
+//                                      └──▶ Pi 192.168.2.2:5600  (this process)
 //
-// Both lidars send to the same ports on the Jetson — the ROS driver
-// distinguishes them by source IP, not port. So we bind two ports only:
+// Uses SO_REUSEPORT so both this process and the ROS driver can bind
+// the same ports simultaneously. The kernel delivers each incoming
+// datagram to BOTH sockets independently — the ROS driver is completely
+// unaware of this process and vice versa. No localhost relay needed.
 //
-//   56301  point_data
-//   56401  imu_data
+// Ports shared with ROS driver:
+//   56301  point_data  (both lidars send here)
+//   56401  imu_data    (both lidars send here)
 //
-// Every datagram received on those ports is forwarded verbatim to:
-//   1. 127.0.0.1:<same port>   so livox_ros_driver2 works unchanged
-//   2. 192.168.2.2:<PI_PORT>   so the Pi Rust app receives raw packets
-//
-// No parsing, no serialization, no modification — pure byte relay.
-//
-// cmd_data (56100) is NEVER proxied: the ROS driver must keep a direct
-// connection to the lidars for handshake and configuration.
+// cmd_data (56100) is never touched — ROS driver owns that exclusively.
 //
 // Usage:
 //   ./livox_forwarder <pi_ip> <pi_port>
@@ -48,21 +44,15 @@
 #include <vector>
 
 // ── Port configuration ────────────────────────────────────────────────────────
-// Both MID360s send to the same ports on the Jetson host.
-// The ROS driver tells them apart by the UDP source IP (192.168.2.40 / .41).
-// We just relay every datagram we receive — no lidar-specific logic needed.
 
 struct PortEntry {
-    uint16_t    listen_port;  // port we bind (lidar sends here)
-    uint16_t    local_port;   // port ROS driver listens on (forwarded to 127.0.0.1)
+    uint16_t    port;
     const char* label;
 };
 
 static const PortEntry kPorts[] = {
-    { 56301, 56301, "points (both lidars)" },
-    { 56401, 56401, "imu    (both lidars)" },
-    // { 56201, 56201, "push_msg" },  // uncomment if needed
-    // { 56501, 56501, "log_data" },
+    { 56301, "points (both lidars)" },
+    { 56401, "imu    (both lidars)" },
 };
 static const int kNumPorts = static_cast<int>(sizeof(kPorts) / sizeof(kPorts[0]));
 
@@ -75,17 +65,14 @@ static const int kBufSize   = 65536;
 
 static std::atomic<bool> g_running{true};
 
-static void handle_signal(int) {
-    g_running = false;
-}
+static void handle_signal(int) { g_running = false; }
 
 // ── Per-port state ────────────────────────────────────────────────────────────
 
 struct Forwarder {
-    int         recv_fd{-1};
-    int         send_fd{-1};
+    int         recv_fd{-1};   // shares port with ROS driver via SO_REUSEPORT
+    int         send_fd{-1};   // sends only to Pi
     sockaddr_in pi_dest{};
-    sockaddr_in local_dest{};
     const char* label{nullptr};
     uint8_t     buf[kBufSize]{};
     uint64_t    pkt_count{0};
@@ -98,37 +85,40 @@ static bool init_forwarder(Forwarder&         f,
 {
     f.label = port.label;
 
-    // Receiving socket — binds the port the lidars send to
     f.recv_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (f.recv_fd < 0) {
         fprintf(stderr, "[%s] socket(recv): %s\n", port.label, strerror(errno));
         return false;
     }
 
+    // SO_REUSEPORT lets both this process and livox_ros_driver2 bind the
+    // same port — the kernel delivers each datagram to both independently
     int reuse = 1;
-    ::setsockopt(f.recv_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    if (::setsockopt(f.recv_fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse)) < 0) {
+        fprintf(stderr, "[%s] setsockopt(SO_REUSEPORT): %s\n", port.label, strerror(errno));
+        return false;
+    }
 
     sockaddr_in bind_addr{};
     bind_addr.sin_family      = AF_INET;
-    bind_addr.sin_port        = htons(port.listen_port);
+    bind_addr.sin_port        = htons(port.port);
     bind_addr.sin_addr.s_addr = INADDR_ANY;
 
     if (::bind(f.recv_fd,
                reinterpret_cast<sockaddr*>(&bind_addr),
                sizeof(bind_addr)) < 0) {
         fprintf(stderr, "[%s] bind(:%u): %s\n",
-                port.label, port.listen_port, strerror(errno));
+                port.label, port.port, strerror(errno));
         return false;
     }
 
-    // Sending socket — used for both destinations
+    // Dedicated send socket — only used to forward to the Pi
     f.send_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
     if (f.send_fd < 0) {
         fprintf(stderr, "[%s] socket(send): %s\n", port.label, strerror(errno));
         return false;
     }
 
-    // Pi destination
     f.pi_dest.sin_family = AF_INET;
     f.pi_dest.sin_port   = htons(pi_port);
     if (::inet_pton(AF_INET, pi_ip.c_str(), &f.pi_dest.sin_addr) != 1) {
@@ -136,30 +126,16 @@ static bool init_forwarder(Forwarder&         f,
         return false;
     }
 
-    // Localhost destination for ROS driver
-    f.local_dest.sin_family      = AF_INET;
-    f.local_dest.sin_port        = htons(port.local_port);
-    f.local_dest.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-    printf("[fwd] %-24s  :%u  ->  127.0.0.1:%-5u  +  %s:%u\n",
-           port.label, port.listen_port, port.local_port,
-           pi_ip.c_str(), pi_port);
+    printf("[fwd] %-24s  :%u  ->  %s:%u\n",
+           port.label, port.port, pi_ip.c_str(), pi_port);
     return true;
 }
 
 static void forward_one(Forwarder& f) {
-    sockaddr_in src{};
-    socklen_t   src_len = sizeof(src);
-
-    ssize_t n = ::recvfrom(f.recv_fd, f.buf, kBufSize, 0,
-                           reinterpret_cast<sockaddr*>(&src), &src_len);
+    ssize_t n = ::recv(f.recv_fd, f.buf, kBufSize, 0);
     if (n <= 0) return;
 
-    // Verbatim relay — no parsing, no modification
-    ::sendto(f.send_fd, f.buf, static_cast<size_t>(n), 0,
-             reinterpret_cast<const sockaddr*>(&f.local_dest),
-             sizeof(f.local_dest));
-
+    // Forward verbatim to Pi only — ROS driver handles its own copy
     ::sendto(f.send_fd, f.buf, static_cast<size_t>(n), 0,
              reinterpret_cast<const sockaddr*>(&f.pi_dest),
              sizeof(f.pi_dest));
@@ -201,11 +177,11 @@ int main(int argc, char** argv) {
         ::epoll_ctl(epfd, EPOLL_CTL_ADD, fwds[i].recv_fd, &ev);
     }
 
-    printf("[fwd] running — %d channels — Jetson 192.168.2.3 -> Pi %s:%u — Ctrl-C to stop\n",
-           kNumPorts, pi_ip.c_str(), pi_port);
+    printf("[fwd] running — forwarding to Pi %s:%u — Ctrl-C to stop\n",
+           pi_ip.c_str(), pi_port);
 
-    uint64_t     last_stats = 0;
-    epoll_event  events[kMaxEvents];
+    uint64_t    last_stats = 0;
+    epoll_event events[kMaxEvents];
 
     while (g_running) {
         int n = ::epoll_wait(epfd, events, kMaxEvents, 200);
