@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Environment="FORWARDER_SRC=/home/capra/projects/photorealistic-mapping/livox_forwarder"
 ExecStartPre=/bin/bash -c "g++ -O2 -o /home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder /home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder.cpp"
-ExecStart=/home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder 192.168.1.50 5600 56301 56302
+ExecStart=/home/capra/projects/photorealistic-mapping/livox_forwarder/livox_forwarder 192.168.2.2 5600 56301 56302
 Restart=on-failure
 RestartSec=5s
 
